@@ -218,10 +218,9 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 		t.Fatalf("unexpected error creating client: %v", err)
 	}
 
-	req := client.MethodPost(context.Background(), "/upload")
-
-	resp, err := req.
-		FormField(fieldName, fieldValue).
+	resp, err := client.MethodPost(context.Background(), "/upload").
+		Multipart().
+		Field(fieldName, fieldValue).
 		File("file", fileName, strings.NewReader(fileContent)).
 		Send()
 	if err != nil {
@@ -235,19 +234,6 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	if req.multipart() {
-		t.Fatalf("expected request to reset multipart state after send")
-	}
-	if req.buffer != nil {
-		t.Fatalf("expected request buffer to be cleared after send")
-	}
-	if req.writer != nil {
-		t.Fatalf("expected request writer to be cleared after send")
-	}
-	if req.err != nil {
-		t.Fatalf("expected request error to remain nil, got %v", req.err)
 	}
 
 	if record.Method != http.MethodPost {
@@ -351,7 +337,8 @@ func BenchmarkRequestMultipart(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		resp, err := client.MethodPost(context.Background(), "/upload").
-			FormField("description", "benchmark").
+			Multipart().
+			Field("description", "benchmark").
 			File("file", "bench.txt", strings.NewReader("file payload")).
 			Send()
 		if err != nil {
