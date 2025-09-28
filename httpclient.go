@@ -29,8 +29,7 @@ type Request struct {
 type Client struct {
 	baseURL    *url.URL
 	client     *http.Client
-	bytePool   *bytePool
-	bufferPool *bufferPool
+	bufferSize int
 }
 
 func NewClient(client *http.Client, baseURL string) (*Client, error) {
@@ -39,13 +38,12 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 		return nil, fmt.Errorf("invalid base URL: %v", err)
 	}
 
-	const bufferSize = 1 << 12
+	const bufferSize = 1 << 12 // 4096 bytes
 
 	return &Client{
 		client:     client,
 		baseURL:    u,
-		bytePool:   newBytePool(bufferSize),
-		bufferPool: newBufferPool(bufferSize),
+		bufferSize: bufferSize,
 	}, nil
 }
 
@@ -93,19 +91,19 @@ func (r *Request) multipart() bool {
 	return r.writer != nil && r.buffer != nil
 }
 
-func (r *Request) Multipart() *Request {
+func (r *Request) Multipart() error {
 	if r.err != nil {
-		return r
+		return r.err
 	}
 
 	if r.multipart() {
-		return r
+		return nil
 	}
 
-	r.buffer = r.bufferPool.Get()
+	r.buffer = bytes.NewBuffer(make([]byte, 0, r.bufferSize))
 	r.writer = multipart.NewWriter(r.buffer)
 
-	return r
+	return nil
 }
 
 func (r *Request) Header(key, value string) *Request {
@@ -127,7 +125,7 @@ func (r *Request) Headers(headers map[string]string) *Request {
 	}
 
 	for key, value := range headers {
-		r = r.Header(key, value)
+		r.Header(key, value)
 	}
 
 	return r
@@ -202,7 +200,7 @@ func (r *Request) BytesBody(body []byte) *Request {
 
 	r.request.Body = io.NopCloser(bytes.NewReader(body))
 	r.request.ContentLength = int64(len(body))
-	r = r.Header(ContentLength, strconv.Itoa(len(body)))
+	r.Header(ContentLength, strconv.Itoa(len(body)))
 
 	return r
 }
@@ -222,8 +220,8 @@ func (r *Request) JSONBody(body any) *Request {
 		return r
 	}
 
-	r = r.BytesBody(jsonData)
-	r = r.ContentType(ApplicationJSON)
+	r.BytesBody(jsonData)
+	r.ContentType(ApplicationJSON)
 
 	return r
 }
@@ -234,8 +232,7 @@ func (r *Request) File(fieldName, filename string, content io.Reader) *Request {
 	}
 
 	if !r.multipart() {
-		r = r.Multipart()
-		if r.err != nil {
+		if r.err = r.Multipart(); r.err != nil {
 			return r
 		}
 	}
@@ -246,10 +243,7 @@ func (r *Request) File(fieldName, filename string, content io.Reader) *Request {
 		return r
 	}
 
-	buf := r.bytePool.Get()
-	defer func() {
-		r.bytePool.Put(buf)
-	}()
+	buf := make([]byte, r.bufferSize)
 
 	_, err = io.CopyBuffer(part, content, buf)
 	if err != nil {
@@ -266,8 +260,7 @@ func (r *Request) FormField(fieldName, value string) *Request {
 	}
 
 	if !r.multipart() {
-		r = r.Multipart()
-		if r.err != nil {
+		if r.err = r.Multipart(); r.err != nil {
 			return r
 		}
 	}
@@ -291,13 +284,10 @@ func (r *Request) Send() (*http.Response, error) {
 	}
 
 	if r.multipart() {
-		defer func(b *bytes.Buffer) {
-			if b != nil {
-				r.bufferPool.Put(b)
-			}
+		defer func() {
 			r.buffer = nil
 			r.writer = nil
-		}(r.buffer)
+		}()
 
 		if err := r.writer.Close(); err != nil {
 			return nil, fmt.Errorf("failed to close multipart writer: %w", err)
@@ -305,8 +295,8 @@ func (r *Request) Send() (*http.Response, error) {
 
 		r.request.Body = io.NopCloser(r.buffer)
 		r.request.ContentLength = int64(r.buffer.Len())
-		r = r.Header(ContentType, r.writer.FormDataContentType())
-		r = r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
+		r.Header(ContentType, r.writer.FormDataContentType())
+		r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
 	}
 
 	return r.client.Do(r.request)

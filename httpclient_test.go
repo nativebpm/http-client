@@ -21,7 +21,7 @@ func TestNewClientInvalidURL(t *testing.T) {
 	}
 }
 
-func TestNewClientInitializesPools(t *testing.T) {
+func TestNewClientInitializesCorrectly(t *testing.T) {
 	httpClient := &http.Client{}
 	client, err := NewClient(httpClient, "https://example.com/api")
 	if err != nil {
@@ -34,11 +34,13 @@ func TestNewClientInitializesPools(t *testing.T) {
 	if client.baseURL.String() != "https://example.com/api" {
 		t.Fatalf("unexpected base URL: %s", client.baseURL)
 	}
-	if client.bytePool == nil {
-		t.Fatalf("expected byte pool to be initialized")
+	if client.bufferSize == 0 {
+		t.Fatalf("expected bufferSize to be initialized")
 	}
-	if client.bufferPool == nil {
-		t.Fatalf("expected buffer pool to be initialized")
+
+	expectedSize := 1 << 12 // 4096
+	if client.bufferSize != expectedSize {
+		t.Fatalf("expected bufferSize %d, got %d", expectedSize, client.bufferSize)
 	}
 }
 
