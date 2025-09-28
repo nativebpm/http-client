@@ -137,10 +137,6 @@ func (r *Request) ContentType(contentType string) *Request {
 	return r.Header(ContentType, contentType)
 }
 
-func (r *Request) JSONContentType() *Request {
-	return r.ContentType(ApplicationJSON)
-}
-
 func (r *Request) QueryParam(key, value string) *Request {
 	if r.err != nil {
 		return r
@@ -205,6 +201,7 @@ func (r *Request) BytesBody(body []byte) *Request {
 	}
 
 	r.request.Body = io.NopCloser(bytes.NewReader(body))
+	r.request.ContentLength = int64(len(body))
 	r = r.Header(ContentLength, strconv.Itoa(len(body)))
 
 	return r
@@ -226,7 +223,7 @@ func (r *Request) JSONBody(body any) *Request {
 	}
 
 	r = r.BytesBody(jsonData)
-	r = r.JSONContentType()
+	r = r.ContentType(ApplicationJSON)
 
 	return r
 }
@@ -307,6 +304,7 @@ func (r *Request) Send() (*http.Response, error) {
 		}
 
 		r.request.Body = io.NopCloser(r.buffer)
+		r.request.ContentLength = int64(r.buffer.Len())
 		r = r.Header(ContentType, r.writer.FormDataContentType())
 		r = r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
 	}
