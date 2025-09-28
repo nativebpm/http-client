@@ -14,16 +14,17 @@ func newBytePool(bufferSize int) *bytePool {
 	return &bytePool{
 		p: sync.Pool{
 			New: func() any {
-				return make([]byte, bufferSize)
+				b := make([]byte, bufferSize)
+				return &b
 			},
 		},
 		size: bufferSize,
 	}
 }
-
 func (tp *bytePool) Get() []byte {
 	if v := tp.p.Get(); v != nil {
-		if b, ok := v.([]byte); ok {
+		if bp, ok := v.(*[]byte); ok && bp != nil {
+			b := *bp
 			if cap(b) < tp.size {
 				return make([]byte, tp.size)
 			}
@@ -32,7 +33,6 @@ func (tp *bytePool) Get() []byte {
 	}
 	return make([]byte, tp.size)
 }
-
 func (tp *bytePool) Put(b []byte) {
 	if b == nil {
 		return
@@ -40,7 +40,8 @@ func (tp *bytePool) Put(b []byte) {
 	if cap(b) < tp.size {
 		return
 	}
-	tp.p.Put(b[:tp.size])
+	s := b[:tp.size]
+	tp.p.Put(&s)
 }
 
 type bufferPool struct {
