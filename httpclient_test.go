@@ -218,7 +218,7 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 		t.Fatalf("unexpected error creating client: %v", err)
 	}
 
-	req := client.MethodPost(context.Background(), "/upload")
+	req := client.MultipartMethodPost(context.Background(), "/upload")
 
 	resp, err := req.
 		FormField(fieldName, fieldValue).
@@ -350,7 +350,7 @@ func BenchmarkRequestMultipart(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := client.MethodPost(context.Background(), "/upload").
+		resp, err := client.MultipartMethodPost(context.Background(), "/upload").
 			FormField("description", "benchmark").
 			File("file", "bench.txt", strings.NewReader("file payload")).
 			Send()
