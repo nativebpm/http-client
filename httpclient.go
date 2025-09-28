@@ -301,8 +301,8 @@ func (r *Request) FormField(fieldName, value string) *Request {
 	return r
 }
 
-func (r *Request) Err() error {
-	return r.err
+func (r *Request) GetRequest() (*Request, error) {
+	return r, r.err
 }
 
 func (r *Request) Send() (*http.Response, error) {
