@@ -17,10 +17,14 @@ type Request struct {
 	err     error
 }
 
+func (r *Request) GetRequest() (*Request, error) {
+	return r, r.err
+}
+
 func (r *Request) Multipart() *MultipartRequest {
 	buf := bytes.NewBuffer(make([]byte, 0, r.bufferSize))
 	w := multipart.NewWriter(buf)
-	return &MultipartRequest{req: r, writer: w, buffer: buf}
+	return &MultipartRequest{Request: r, writer: w, buffer: buf}
 }
 
 func (r *Request) Header(key, value string) *Request {
