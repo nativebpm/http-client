@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 )
 
 const (
@@ -19,29 +18,19 @@ const (
 	ContentLength   = "Content-Length"
 )
 
-const (
-	bufferSize = 1 << 12
-)
-
-var bufferPool = sync.Pool{
-	New: func() any {
-		buf := make([]byte, 0, bufferSize)
-		return &buf
-	},
-}
-
 type Request struct {
 	*Client
-	request   *http.Request
-	multipart bool
-	writer    *multipart.Writer
-	buffer    *bytes.Buffer
-	err       error
+	request *http.Request
+	writer  *multipart.Writer
+	buffer  *bytes.Buffer
+	err     error
 }
 
 type Client struct {
-	baseURL *url.URL
-	client  *http.Client
+	baseURL    *url.URL
+	client     *http.Client
+	bytePool   *bytePool
+	bufferPool *bufferPool
 }
 
 func NewClient(client *http.Client, baseURL string) (*Client, error) {
@@ -50,9 +39,13 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 		return nil, fmt.Errorf("invalid base URL: %v", err)
 	}
 
+	const bufferSize = 1 << 12
+
 	return &Client{
-		client:  client,
-		baseURL: u,
+		client:     client,
+		baseURL:    u,
+		bytePool:   newBytePool(bufferSize),
+		bufferPool: newBufferPool(bufferSize),
 	}, nil
 }
 
@@ -96,19 +89,21 @@ func (c *Client) MethodDelete(ctx context.Context, path string) *Request {
 	return req
 }
 
+func (r *Request) multipart() bool {
+	return r.writer != nil && r.buffer != nil
+}
+
 func (r *Request) Multipart() *Request {
 	if r.err != nil {
 		return r
 	}
 
-	if r.multipart {
+	if r.multipart() {
 		return r
 	}
 
-	r.buffer = &bytes.Buffer{}
-	r.buffer.Grow(bufferSize)
+	r.buffer = r.bufferPool.Get()
 	r.writer = multipart.NewWriter(r.buffer)
-	r.multipart = true
 
 	return r
 }
@@ -241,7 +236,7 @@ func (r *Request) File(fieldName, filename string, content io.Reader) *Request {
 		return r
 	}
 
-	if !r.multipart {
+	if !r.multipart() {
 		r = r.Multipart()
 		if r.err != nil {
 			return r
@@ -254,21 +249,9 @@ func (r *Request) File(fieldName, filename string, content io.Reader) *Request {
 		return r
 	}
 
-	var buf []byte
-	if p := bufferPool.Get(); p != nil {
-		if bufPtr, ok := p.(*[]byte); ok {
-			buf = (*bufPtr)[:cap(*bufPtr)]
-		} else {
-			buf = make([]byte, bufferSize)
-		}
-	} else {
-		buf = make([]byte, bufferSize)
-	}
+	buf := r.bytePool.Get()
 	defer func() {
-		if len(buf) > 0 {
-			buf = buf[:0]
-			bufferPool.Put(&buf)
-		}
+		r.bytePool.Put(buf)
 	}()
 
 	_, err = io.CopyBuffer(part, content, buf)
@@ -285,7 +268,7 @@ func (r *Request) FormField(fieldName, value string) *Request {
 		return r
 	}
 
-	if !r.multipart {
+	if !r.multipart() {
 		r = r.Multipart()
 		if r.err != nil {
 			return r
@@ -310,7 +293,15 @@ func (r *Request) Send() (*http.Response, error) {
 		return nil, r.err
 	}
 
-	if r.multipart && r.writer != nil && r.buffer != nil {
+	if r.multipart() {
+		defer func(b *bytes.Buffer) {
+			if b != nil {
+				r.bufferPool.Put(b)
+			}
+			r.buffer = nil
+			r.writer = nil
+		}(r.buffer)
+
 		if err := r.writer.Close(); err != nil {
 			return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 		}
