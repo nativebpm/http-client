@@ -51,3 +51,35 @@ func TestBufferPoolResetsBuffers(t *testing.T) {
 		t.Fatalf("expected reused buffer to be reset, got length %d", reused.Len())
 	}
 }
+
+func BenchmarkBytePool(b *testing.B) {
+	const size = 1 << 12
+
+	pool := newBytePool(size)
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			buf := pool.Get()
+			buf[0] = 1
+			pool.Put(buf)
+		}
+	})
+}
+
+func BenchmarkBufferPool(b *testing.B) {
+	const size = 1 << 12
+
+	pool := newBufferPool(size)
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			buf := pool.Get()
+			if _, err := buf.WriteString("benchmark"); err != nil {
+				b.Fatalf("write failed: %v", err)
+			}
+			pool.Put(buf)
+		}
+	})
+}

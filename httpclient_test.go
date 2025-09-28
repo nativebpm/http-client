@@ -285,3 +285,79 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 		t.Fatalf("expected content-length header %s, got %s", expectedLength, headerLength)
 	}
 }
+
+func BenchmarkRequestJSONBody(b *testing.B) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		_ = r.Body.Close()
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	b.Cleanup(srv.Close)
+
+	client, err := NewClient(srv.Client(), srv.URL)
+	if err != nil {
+		b.Fatalf("unexpected error creating client: %v", err)
+	}
+
+	payload := map[string]any{"message": "hello"}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		resp, err := client.MethodPost(context.Background(), "/submit").
+			JSONBody(payload).
+			Send()
+		if err != nil {
+			b.Fatalf("unexpected error sending request: %v", err)
+		}
+		if resp.Body != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+	}
+}
+
+func BenchmarkRequestMultipart(b *testing.B) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reader, err := r.MultipartReader()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+			_, _ = io.Copy(io.Discard, part)
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	b.Cleanup(srv.Close)
+
+	client, err := NewClient(srv.Client(), srv.URL)
+	if err != nil {
+		b.Fatalf("unexpected error creating client: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		resp, err := client.MethodPost(context.Background(), "/upload").
+			FormField("description", "benchmark").
+			File("file", "bench.txt", strings.NewReader("file payload")).
+			Send()
+		if err != nil {
+			b.Fatalf("unexpected error sending multipart request: %v", err)
+		}
+		if resp.Body != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+	}
+}
