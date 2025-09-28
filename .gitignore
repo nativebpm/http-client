@@ -1,0 +1,5 @@
+.vscode
+.code
+.idea
+*.pdf
+__debug_bin*
