@@ -6,42 +6,39 @@ import (
 )
 
 type bytePool struct {
-	p    sync.Pool
+	ch   chan []byte
 	size int
 }
 
 func newBytePool(bufferSize int) *bytePool {
+	const poolSize = 64
+	ch := make(chan []byte, poolSize)
+	for i := 0; i < poolSize; i++ {
+		ch <- make([]byte, bufferSize)
+	}
+
 	return &bytePool{
-		p: sync.Pool{
-			New: func() any {
-				b := make([]byte, bufferSize)
-				return &b
-			},
-		},
+		ch:   ch,
 		size: bufferSize,
 	}
 }
 func (tp *bytePool) Get() []byte {
-	if v := tp.p.Get(); v != nil {
-		if bp, ok := v.(*[]byte); ok && bp != nil {
-			b := *bp
-			if cap(b) < tp.size {
-				return make([]byte, tp.size)
-			}
-			return b[:tp.size]
-		}
+	select {
+	case buf := <-tp.ch:
+		return buf[:tp.size]
+	default:
+		return make([]byte, tp.size)
 	}
-	return make([]byte, tp.size)
 }
 func (tp *bytePool) Put(b []byte) {
-	if b == nil {
+	if b == nil || cap(b) < tp.size {
 		return
 	}
-	if cap(b) < tp.size {
-		return
+
+	select {
+	case tp.ch <- b:
+	default:
 	}
-	s := b[:tp.size]
-	tp.p.Put(&s)
 }
 
 type bufferPool struct {
