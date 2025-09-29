@@ -86,7 +86,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	r.Header(ContentType, r.mw.FormDataContentType())
+	r.ContentType(r.mw.FormDataContentType())
 
 	go func() {
 		defer r.pw.Close()
