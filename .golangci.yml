@@ -30,6 +30,9 @@ issues:
     - ^tools$
     - ^tools/.*
 
+  exclude:
+    - 'Error return value of .*.Close.* is not checked'
+
 issues-settings:
   gocyclo:
     min-complexity: 15

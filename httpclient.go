@@ -1,16 +1,13 @@
 package httpclient
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"sync"
 )
-
-const bufferSize = 1 << 12 // 4096 bytes
 
 const (
 	ApplicationJSON = "application/json"
@@ -19,10 +16,8 @@ const (
 )
 
 type Client struct {
-	baseURL    *url.URL
-	client     *http.Client
-	bufferSize int
-	bufferPool sync.Pool
+	baseURL *url.URL
+	client  *http.Client
 }
 
 func NewClient(client *http.Client, baseURL string) (*Client, error) {
@@ -32,14 +27,8 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 	}
 
 	c := &Client{
-		client:     client,
-		baseURL:    u,
-		bufferSize: bufferSize,
-	}
-	c.bufferPool = sync.Pool{
-		New: func() any {
-			return bytes.NewBuffer(make([]byte, 0, bufferSize))
-		},
+		client:  client,
+		baseURL: u,
 	}
 	return c, nil
 }
@@ -56,11 +45,9 @@ func (c *Client) NewRequest(ctx context.Context, method, path string) *Request {
 
 func (c *Client) NewMultipartRequest(ctx context.Context, method, path string) *Multipart {
 	req := &Multipart{Client: c}
-	buf := c.bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	req.buffer = buf
-	req.writer = multipart.NewWriter(req.buffer)
-	req.request, req.err = http.NewRequestWithContext(ctx, method, c.requestURL(path), nil)
+	req.pr, req.pw = io.Pipe()
+	req.mw = multipart.NewWriter(req.pw)
+	req.request, req.err = http.NewRequestWithContext(ctx, method, c.requestURL(path), req.pr)
 	return req
 }
 

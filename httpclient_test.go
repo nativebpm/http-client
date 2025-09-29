@@ -34,14 +34,6 @@ func TestNewClientInitializesCorrectly(t *testing.T) {
 	if client.baseURL.String() != "https://example.com/api" {
 		t.Fatalf("unexpected base URL: %s", client.baseURL)
 	}
-	if client.bufferSize == 0 {
-		t.Fatalf("expected bufferSize to be initialized")
-	}
-
-	expectedSize := 1 << 12 // 4096
-	if client.bufferSize != expectedSize {
-		t.Fatalf("expected bufferSize %d, got %d", expectedSize, client.bufferSize)
-	}
 }
 
 func TestRequestJSONBody(t *testing.T) {
@@ -236,10 +228,7 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected status code: %d", resp.StatusCode)
 	}
-	if req.buffer != nil {
-		t.Fatalf("expected request buffer to be cleared after send")
-	}
-	if req.writer != nil {
+	if req.mw != nil {
 		t.Fatalf("expected request writer to be cleared after send")
 	}
 	if req.err != nil {

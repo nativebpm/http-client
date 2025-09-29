@@ -1,19 +1,18 @@
 package httpclient
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"strconv"
 )
 
 type Multipart struct {
-	*Client
+	Client  *Client
 	request *http.Request
-	writer  *multipart.Writer
-	buffer  *bytes.Buffer
+	mw      *multipart.Writer
+	pr      *io.PipeReader
+	pw      *io.PipeWriter
 	err     error
 }
 
@@ -50,19 +49,20 @@ func (r *Multipart) File(fieldName, filename string, content io.Reader) *Multipa
 	if r.err != nil {
 		return r
 	}
-
-	part, err := r.writer.CreateFormFile(fieldName, filename)
-	if err != nil {
-		r.err = fmt.Errorf("failed to create form file: %w", err)
-		return r
-	}
-
-	_, err = io.Copy(part, content)
-	if err != nil {
-		r.err = fmt.Errorf("failed to copy file content: %w", err)
-		return r
-	}
-
+	go func() {
+		defer r.pw.Close()
+		defer r.mw.Close()
+		part, err := r.mw.CreateFormFile(fieldName, filename)
+		if err != nil {
+			r.pw.CloseWithError(fmt.Errorf("failed to create form file: %w", err))
+			return
+		}
+		_, err = io.Copy(part, content)
+		if err != nil {
+			r.pw.CloseWithError(fmt.Errorf("failed to copy file content: %w", err))
+			return
+		}
+	}()
 	return r
 }
 
@@ -70,13 +70,13 @@ func (r *Multipart) FormField(fieldName, value string) *Multipart {
 	if r.err != nil {
 		return r
 	}
-
-	err := r.writer.WriteField(fieldName, value)
-	if err != nil {
-		r.err = fmt.Errorf("failed to write form field %q: %w", fieldName, err)
-		return r
-	}
-
+	go func() {
+		err := r.mw.WriteField(fieldName, value)
+		if err != nil {
+			r.pw.CloseWithError(fmt.Errorf("failed to write form field %q: %w", fieldName, err))
+			return
+		}
+	}()
 	return r
 }
 
@@ -88,19 +88,10 @@ func (r *Multipart) Send() (*http.Response, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-
-	if err := r.writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	r.request.Body = io.NopCloser(r.buffer)
-	r.request.ContentLength = int64(r.buffer.Len())
-	r.Header(ContentType, r.writer.FormDataContentType())
-	r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
-
-	resp, err := r.client.Do(r.request)
-	r.Client.bufferPool.Put(r.buffer)
-	r.buffer = nil
-	r.writer = nil
+	r.Header(ContentType, r.mw.FormDataContentType())
+	resp, err := r.Client.client.Do(r.request)
+	r.mw = nil
+	r.pr = nil
+	r.pw = nil
 	return resp, err
 }
