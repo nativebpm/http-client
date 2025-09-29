@@ -14,6 +14,7 @@ type Multipart struct {
 	pr      *io.PipeReader
 	pw      *io.PipeWriter
 	err     error
+	ops     []func() error
 }
 
 func (r *Multipart) Header(key, value string) *Multipart {
@@ -49,20 +50,17 @@ func (r *Multipart) File(fieldName, filename string, content io.Reader) *Multipa
 	if r.err != nil {
 		return r
 	}
-	go func() {
-		defer r.pw.Close()
-		defer r.mw.Close()
+	r.ops = append(r.ops, func() error {
 		part, err := r.mw.CreateFormFile(fieldName, filename)
 		if err != nil {
-			r.pw.CloseWithError(fmt.Errorf("failed to create form file: %w", err))
-			return
+			return fmt.Errorf("failed to create form file: %w", err)
 		}
 		_, err = io.Copy(part, content)
 		if err != nil {
-			r.pw.CloseWithError(fmt.Errorf("failed to copy file content: %w", err))
-			return
+			return fmt.Errorf("failed to copy file content: %w", err)
 		}
-	}()
+		return nil
+	})
 	return r
 }
 
@@ -70,13 +68,13 @@ func (r *Multipart) FormField(fieldName, value string) *Multipart {
 	if r.err != nil {
 		return r
 	}
-	go func() {
+	r.ops = append(r.ops, func() error {
 		err := r.mw.WriteField(fieldName, value)
 		if err != nil {
-			r.pw.CloseWithError(fmt.Errorf("failed to write form field %q: %w", fieldName, err))
-			return
+			return fmt.Errorf("failed to write form field %q: %w", fieldName, err)
 		}
-	}()
+		return nil
+	})
 	return r
 }
 
@@ -89,9 +87,22 @@ func (r *Multipart) Send() (*http.Response, error) {
 		return nil, r.err
 	}
 	r.Header(ContentType, r.mw.FormDataContentType())
+
+	go func() {
+		defer r.pw.Close()
+		defer r.mw.Close()
+		for _, op := range r.ops {
+			if err := op(); err != nil {
+				r.pw.CloseWithError(err)
+				return
+			}
+		}
+	}()
+
 	resp, err := r.Client.client.Do(r.request)
 	r.mw = nil
 	r.pr = nil
 	r.pw = nil
+	r.ops = nil
 	return resp, err
 }
