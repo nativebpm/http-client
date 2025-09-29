@@ -8,7 +8,7 @@ import (
 )
 
 type Multipart struct {
-	Client  *Client
+	*Client
 	request *http.Request
 	mw      *multipart.Writer
 	pr      *io.PipeReader
@@ -99,7 +99,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 		}
 	}()
 
-	resp, err := r.Client.client.Do(r.request)
+	resp, err := r.client.Do(r.request)
 	r.mw = nil
 	r.pr = nil
 	r.pw = nil
