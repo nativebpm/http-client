@@ -43,7 +43,9 @@ func Benchmark_Alloc_MultipartBody(b *testing.B) {
 
 func Benchmark_Alloc_HTTPRequest(b *testing.B) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.Copy(io.Discard, r.Body)
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			b.Fatalf("unexpected error copying request body: %v", err)
+		}
 		r.Body.Close()
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -64,8 +66,12 @@ func Benchmark_Alloc_HTTPRequest(b *testing.B) {
 			b.Fatalf("unexpected error sending request: %v", err)
 		}
 		if resp.Body != nil {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
+			if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+				b.Fatalf("unexpected error copying response body: %v", err)
+			}
+			if err := resp.Body.Close(); err != nil {
+				b.Fatalf("unexpected error closing response body: %v", err)
+			}
 		}
 	}
 }
