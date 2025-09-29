@@ -57,9 +57,7 @@ func (r *Multipart) File(fieldName, filename string, content io.Reader) *Multipa
 		return r
 	}
 
-	buf := make([]byte, r.bufferSize)
-
-	_, err = io.CopyBuffer(part, content, buf)
+	_, err = io.Copy(part, content)
 	if err != nil {
 		r.err = fmt.Errorf("failed to copy file content: %w", err)
 		return r
