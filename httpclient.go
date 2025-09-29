@@ -10,6 +10,8 @@ import (
 	"sync"
 )
 
+const bufferSize = 1 << 12 // 4096 bytes
+
 const (
 	ApplicationJSON = "application/json"
 	ContentType     = "Content-Type"
@@ -28,8 +30,6 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL: %v", err)
 	}
-
-	const bufferSize = 1 << 12 // 4096 bytes
 
 	c := &Client{
 		client:     client,
