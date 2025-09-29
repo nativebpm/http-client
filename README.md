@@ -1,14 +1,14 @@
 
 # http-client
 
+
 Universal HTTP client for Go with method chaining, multipart support, and zero third-party dependencies.
 
 ## Features
-
+  
 - Method chaining for building requests
 - Multipart/form-data file uploads
 - Header and query param management
-- Thread-safe, buffer pooling for performance
 - Minimal API, no external dependencies
 
 ## Usage Example
