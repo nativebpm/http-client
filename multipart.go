@@ -17,23 +17,12 @@ type Multipart struct {
 	err     error
 }
 
-func (r *Multipart) multipart() bool {
-	return r.writer != nil && r.buffer != nil
-}
-
-func (r *Multipart) Multipart() error {
-	if r.err != nil {
-		return r.err
+func (r *Multipart) multipart() {
+	if r.writer != nil {
+		return
 	}
-
-	if r.multipart() {
-		return nil
-	}
-
 	r.buffer = bytes.NewBuffer(make([]byte, 0, r.bufferSize))
 	r.writer = multipart.NewWriter(r.buffer)
-
-	return nil
 }
 
 func (r *Multipart) Header(key, value string) *Multipart {
@@ -69,12 +58,7 @@ func (r *Multipart) File(fieldName, filename string, content io.Reader) *Multipa
 	if r.err != nil {
 		return r
 	}
-
-	if !r.multipart() {
-		if r.err = r.Multipart(); r.err != nil {
-			return r
-		}
-	}
+	r.multipart()
 
 	part, err := r.writer.CreateFormFile(fieldName, filename)
 	if err != nil {
@@ -97,12 +81,7 @@ func (r *Multipart) FormField(fieldName, value string) *Multipart {
 	if r.err != nil {
 		return r
 	}
-
-	if !r.multipart() {
-		if r.err = r.Multipart(); r.err != nil {
-			return r
-		}
-	}
+	r.multipart()
 
 	err := r.writer.WriteField(fieldName, value)
 	if err != nil {
@@ -122,7 +101,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 		return nil, r.err
 	}
 
-	if r.multipart() {
+	if r.writer != nil {
 		defer func() {
 			r.buffer = nil
 			r.writer = nil

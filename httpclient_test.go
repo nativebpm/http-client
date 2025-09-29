@@ -236,10 +236,6 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected status code: %d", resp.StatusCode)
 	}
-
-	if req.multipart() {
-		t.Fatalf("expected request to reset multipart state after send")
-	}
 	if req.buffer != nil {
 		t.Fatalf("expected request buffer to be cleared after send")
 	}
