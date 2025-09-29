@@ -85,7 +85,7 @@ func TestRequestJSONBody(t *testing.T) {
 
 	payload := map[string]any{"message": "hello"}
 
-	req := client.MethodPost(context.Background(), "/submit").
+	req := client.RequestPOST(context.Background(), "/submit").
 		QueryParam("page", "1").
 		JSONBody(payload)
 
@@ -218,7 +218,7 @@ func TestRequestMultipartFileAndFormField(t *testing.T) {
 		t.Fatalf("unexpected error creating client: %v", err)
 	}
 
-	req := client.MultipartMethodPost(context.Background(), "/upload")
+	req := client.MultipartPOST(context.Background(), "/upload")
 
 	resp, err := req.
 		FormField(fieldName, fieldValue).
@@ -303,7 +303,7 @@ func BenchmarkRequestJSONBody(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := client.MethodPost(context.Background(), "/submit").
+		resp, err := client.RequestPOST(context.Background(), "/submit").
 			JSONBody(payload).
 			Send()
 		if err != nil {
@@ -346,7 +346,7 @@ func BenchmarkRequestMultipart(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := client.MultipartMethodPost(context.Background(), "/upload").
+		resp, err := client.MultipartPOST(context.Background(), "/upload").
 			FormField("description", "benchmark").
 			File("file", "bench.txt", strings.NewReader("file payload")).
 			Send()

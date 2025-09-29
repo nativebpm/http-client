@@ -17,14 +17,6 @@ type Multipart struct {
 	err     error
 }
 
-func (r *Multipart) multipart() {
-	if r.writer != nil {
-		return
-	}
-	r.buffer = bytes.NewBuffer(make([]byte, 0, r.bufferSize))
-	r.writer = multipart.NewWriter(r.buffer)
-}
-
 func (r *Multipart) Header(key, value string) *Multipart {
 	if r.err != nil {
 		return r
@@ -58,7 +50,6 @@ func (r *Multipart) File(fieldName, filename string, content io.Reader) *Multipa
 	if r.err != nil {
 		return r
 	}
-	r.multipart()
 
 	part, err := r.writer.CreateFormFile(fieldName, filename)
 	if err != nil {
@@ -81,7 +72,6 @@ func (r *Multipart) FormField(fieldName, value string) *Multipart {
 	if r.err != nil {
 		return r
 	}
-	r.multipart()
 
 	err := r.writer.WriteField(fieldName, value)
 	if err != nil {
@@ -101,21 +91,18 @@ func (r *Multipart) Send() (*http.Response, error) {
 		return nil, r.err
 	}
 
-	if r.writer != nil {
-		defer func() {
-			r.buffer = nil
-			r.writer = nil
-		}()
-
-		if err := r.writer.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close multipart writer: %w", err)
-		}
-
-		r.request.Body = io.NopCloser(r.buffer)
-		r.request.ContentLength = int64(r.buffer.Len())
-		r.Header(ContentType, r.writer.FormDataContentType())
-		r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
+	if err := r.writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	return r.client.Do(r.request)
+	r.request.Body = io.NopCloser(r.buffer)
+	r.request.ContentLength = int64(r.buffer.Len())
+	r.Header(ContentType, r.writer.FormDataContentType())
+	r.Header(ContentLength, strconv.Itoa(r.buffer.Len()))
+
+	resp, err := r.client.Do(r.request)
+	r.Client.bufferPool.Put(r.buffer)
+	r.buffer = nil
+	r.writer = nil
+	return resp, err
 }
