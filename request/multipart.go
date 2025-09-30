@@ -49,12 +49,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 		}
 	}()
 
-	resp, err := r.client.Do(r.request)
-	r.mw = nil
-	r.pr = nil
-	r.pw = nil
-	r.ops = nil
-	return resp, err
+	return r.client.Do(r.request)
 }
 
 func (r *Multipart) Header(key, value string) *Multipart {
