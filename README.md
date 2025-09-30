@@ -31,7 +31,7 @@ func main() {
 
     resp, err := client.RequestPOST(context.Background(), "/endpoint").
         Header("Authorization", "Bearer token").
-        JSONBody(map[string]string{"key": "value"}).
+        JSON(map[string]string{"key": "value"}).
         Send()
     if err != nil {
         log.Fatal(err)
@@ -45,7 +45,7 @@ func main() {
 
 ```go
 resp, err := client.MultipartPOST(ctx, "/upload").
-    FormField("desc", "test").
+    Param("desc", "test").
     File("file", "file.txt", strings.NewReader("hello")).
     Send()
 ```
@@ -54,19 +54,30 @@ resp, err := client.MultipartPOST(ctx, "/upload").
 
 **Client:**
 - `NewClient(httpClient *http.Client, baseURL string) (*Client, error)`
-- `RequestGET/POST/PUT/PATCH/DELETE(ctx, path) *Request`
+- `RequestGET(ctx, path) *Request`
+- `RequestPOST(ctx, path) *Request`
+- `RequestPUT(ctx, path) *Request`
+- `RequestPATCH(ctx, path) *Request`
+- `RequestDELETE(ctx, path) *Request`
 - `MultipartPOST(ctx, path) *Multipart`
+- `MultipartPUT(ctx, path) *Multipart`
 
 **Request:**
 - `Header(key, value string) *Request`
-- `QueryParam(key, value string) *Request`
-- `JSONBody(body any) *Request`
+- `Param(key, value string) *Request` (adds query param)
+- `Bool(fieldName string, value bool) *Request` (adds query param)
+- `Float(fieldName string, value float64) *Request` (adds query param)
+- `Body(body io.ReadCloser) *Request`
+- `Bytes(body []byte) *Request`
+- `JSON(body any) *Request`
 - `Send() (*http.Response, error)`
 
 **Multipart:**
-- `FormField(fieldName, value string) *Multipart`
-- `File(fieldName, filename string, content io.Reader) *Multipart`
 - `Header(key, value string) *Multipart`
+- `Param(key, value string) *Multipart` (adds form field)
+- `Bool(fieldName string, value bool) *Multipart` (adds form field)
+- `Float(fieldName string, value float64) *Multipart` (adds form field)
+- `File(fieldName, filename string, content io.Reader) *Multipart`
 - `Send() (*http.Response, error)`
 
 ## Testing
@@ -80,9 +91,9 @@ go test -v -bench=. ./...
 ## Project Structure
 
 - `httpclient.go` — main client and request logic
-- `request.go` — request builder, JSON, query, headers
-- `multipart.go` — multipart/form-data support
-- `httpclient_test.go` — tests and benchmarks
+- `request/request.go` — request builder, JSON, query, headers
+- `request/multipart.go` — multipart/form-data support
+- `httpclient_test.go`, `request/request_test.go`, `request/multipart_test.go` — tests and benchmarks
 
 ## License
 
