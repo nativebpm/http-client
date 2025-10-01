@@ -14,8 +14,8 @@ import (
 type Request struct {
 	client  *http.Client
 	request *http.Request
-	headers map[string][]string
-	params  []ParamOp
+	headers []ItemOp
+	params  []ItemOp
 	body    BodyOp
 }
 
@@ -27,8 +27,8 @@ func NewRequest(ctx context.Context, c *http.Client, method, url string) *Reques
 func NewRequestWithOpsCapacity(ctx context.Context, c *http.Client, method, urlStr string, opsCapacity int) *Request {
 	r := &Request{
 		client:  c,
-		headers: make(map[string][]string, opsCapacity/4),
-		params:  make([]ParamOp, 0, opsCapacity/2),
+		headers: make([]ItemOp, 0, opsCapacity/4),
+		params:  make([]ItemOp, 0, opsCapacity/2),
 	}
 
 	request, _ := http.NewRequestWithContext(ctx, method, urlStr, nil)
@@ -38,7 +38,9 @@ func NewRequestWithOpsCapacity(ctx context.Context, c *http.Client, method, urlS
 
 // Send executes all operations and sends the HTTP request.
 func (r *Request) Send() (*http.Response, error) {
-	r.request.Header = r.headers
+	for _, h := range r.headers {
+		r.request.Header.Set(h.Key, h.Value)
+	}
 
 	if len(r.params) > 0 {
 		q := r.request.URL.Query()
@@ -85,12 +87,12 @@ func (r *Request) setBody() error {
 }
 
 func (r *Request) Header(key, value string) *Request {
-	r.headers[key] = append(r.headers[key], value)
+	r.headers = append(r.headers, ItemOp{Key: key, Value: value})
 	return r
 }
 
 func (r *Request) Param(key, value string) *Request {
-	r.params = append(r.params, ParamOp{Key: key, Value: value})
+	r.params = append(r.params, ItemOp{Key: key, Value: value})
 	return r
 }
 

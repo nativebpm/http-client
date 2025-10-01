@@ -16,8 +16,8 @@ type Multipart struct {
 	mw      *multipart.Writer
 	pr      *io.PipeReader
 	pw      *io.PipeWriter
-	headers map[string][]string
-	params  []ParamOp
+	headers []ItemOp
+	params  []ItemOp
 	files   []FileOp
 }
 
@@ -29,8 +29,8 @@ func NewMultipart(ctx context.Context, c *http.Client, method, url string) *Mult
 func NewMultipartWithOpsCapacity(ctx context.Context, c *http.Client, method, url string, opsCapacity int) *Multipart {
 	r := &Multipart{
 		client:  c,
-		headers: make(map[string][]string, opsCapacity/4),
-		params:  make([]ParamOp, 0, opsCapacity/2),
+		headers: make([]ItemOp, 0, opsCapacity/4),
+		params:  make([]ItemOp, 0, opsCapacity/2),
 		files:   make([]FileOp, 0, opsCapacity/4),
 	}
 	r.pr, r.pw = io.Pipe()
@@ -42,7 +42,11 @@ func NewMultipartWithOpsCapacity(ctx context.Context, c *http.Client, method, ur
 
 // Send executes all operations and sends the multipart request.
 func (r *Multipart) Send() (*http.Response, error) {
-	r.request.Header = r.headers
+
+	for _, h := range r.headers {
+		r.request.Header.Set(h.Key, h.Value)
+	}
+
 	r.request.Header.Set(ContentType, r.mw.FormDataContentType())
 
 	go func() {
@@ -75,12 +79,12 @@ func (r *Multipart) Send() (*http.Response, error) {
 }
 
 func (r *Multipart) Header(key, value string) *Multipart {
-	r.headers[key] = append(r.headers[key], value)
+	r.headers = append(r.headers, ItemOp{Key: key, Value: value})
 	return r
 }
 
 func (r *Multipart) Param(key, value string) *Multipart {
-	r.params = append(r.params, ParamOp{Key: key, Value: value})
+	r.params = append(r.params, ItemOp{Key: key, Value: value})
 	return r
 }
 

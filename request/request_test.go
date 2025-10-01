@@ -45,12 +45,12 @@ func TestRequestHeaders(t *testing.T) {
 	}
 
 	// Check header values
-	if r.headers["Authorization"][0] != "Bearer token" {
-		t.Errorf("unexpected first header: %+v", r.headers["Authorization"])
+	if r.headers[0].Key != "Authorization" || r.headers[0].Value != "Bearer token" {
+		t.Errorf("unexpected first header: %+v", r.headers[0])
 	}
 
-	if r.headers["Accept"][0] != "application/json" {
-		t.Errorf("unexpected second header: %+v", r.headers["Accept"])
+	if r.headers[1].Key != "Accept" || r.headers[1].Value != "application/json" {
+		t.Errorf("unexpected second header: %+v", r.headers[1])
 	}
 }
 
@@ -71,7 +71,7 @@ func TestRequestParams(t *testing.T) {
 	}
 
 	// Check param values
-	expectedParams := []ParamOp{
+	expectedParams := []ItemOp{
 		{Key: "id", Value: "123"},
 		{Key: "active", Value: "true"},
 		{Key: "score", Value: "95.5"},
@@ -227,7 +227,9 @@ func TestRequestSend(t *testing.T) {
 		}
 
 		// Check that headers are applied correctly by manually calling the logic
-		req.request.Header = req.headers
+		for _, h := range req.headers {
+			req.request.Header.Set(h.Key, h.Value)
+		}
 
 		if req.request.Header.Get("Authorization") != "Bearer token" {
 			t.Error("Authorization header not set correctly")

@@ -11,7 +11,7 @@ const (
 	BodyTypeJSON
 )
 
-type ParamOp struct {
+type ItemOp struct {
 	Key, Value string
 }
 
