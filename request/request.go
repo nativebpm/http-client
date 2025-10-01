@@ -21,7 +21,11 @@ type Request struct {
 // NewRequest creates a new HTTP request builder.
 // If the request creation fails, the error will be returned when Send is called.
 func NewRequest(ctx context.Context, c *http.Client, method, url string) *Request {
-	r := &Request{client: c}
+	return NewRequestWithOpsCapacity(ctx, c, method, url, defaultOpsCapacity)
+}
+
+func NewRequestWithOpsCapacity(ctx context.Context, c *http.Client, method, url string, opsCapacity int) *Request {
+	r := &Request{client: c, ops: make([]func() error, 0, opsCapacity)}
 	request, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		r.ops = append(r.ops, func() error {

@@ -23,7 +23,11 @@ type Multipart struct {
 // NewMultipart creates a new multipart/form-data request builder.
 // If the request creation fails, the error will be returned when Send is called.
 func NewMultipart(ctx context.Context, c *http.Client, method, url string) *Multipart {
-	r := &Multipart{client: c}
+	return NewMultipartWithOpsCapacity(ctx, c, method, url, defaultOpsCapacity)
+}
+
+func NewMultipartWithOpsCapacity(ctx context.Context, c *http.Client, method, url string, opsCapacity int) *Multipart {
+	r := &Multipart{client: c, ops: make([]func() error, 0, opsCapacity)}
 	r.pr, r.pw = io.Pipe()
 	r.mw = multipart.NewWriter(r.pw)
 	request, err := http.NewRequestWithContext(ctx, method, url, r.pr)

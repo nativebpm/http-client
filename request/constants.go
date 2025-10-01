@@ -6,3 +6,7 @@ const (
 	ContentType     = "Content-Type"
 	ContentLength   = "Content-Length"
 )
+
+const (
+	defaultOpsCapacity = 16 // operations
+)
