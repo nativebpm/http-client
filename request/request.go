@@ -24,14 +24,18 @@ func NewRequest(ctx context.Context, c *http.Client, method, url string) *Reques
 	return NewRequestWithOpsCapacity(ctx, c, method, url, defaultOpsCapacity)
 }
 
-func NewRequestWithOpsCapacity(ctx context.Context, c *http.Client, method, urlStr string, opsCapacity int) *Request {
+func NewRequestWithOpsCapacity(ctx context.Context, c *http.Client, method, url string, opsCapacity int) *Request {
+	if opsCapacity < defaultOpsCapacity {
+		opsCapacity = defaultOpsCapacity
+	}
+
 	r := &Request{
 		client:  c,
 		headers: make([]ItemOp, 0, opsCapacity/4),
 		params:  make([]ItemOp, 0, opsCapacity/2),
 	}
 
-	request, _ := http.NewRequestWithContext(ctx, method, urlStr, nil)
+	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	r.request = request
 	return r
 }

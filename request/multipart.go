@@ -46,7 +46,6 @@ func NewMultipartWithOpsCapacity(ctx context.Context, c *http.Client, method, ur
 
 // Send executes all operations and sends the multipart request.
 func (r *Multipart) Send() (*http.Response, error) {
-
 	for _, h := range r.headers {
 		r.request.Header.Set(h.Key, h.Value)
 	}
