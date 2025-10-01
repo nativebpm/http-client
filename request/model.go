@@ -17,7 +17,7 @@ type ItemOp struct {
 
 type BodyOp struct {
 	Type          BodyType
-	Data          []byte
+	Bytes         []byte
 	Reader        io.ReadCloser
 	JSON          any
 	ContentType   string

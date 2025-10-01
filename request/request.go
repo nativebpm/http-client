@@ -60,27 +60,39 @@ func (r *Request) Send() (*http.Response, error) {
 func (r *Request) setBody() error {
 	switch r.body.Type {
 	case BodyTypeBytes:
-		r.request.Body = io.NopCloser(bytes.NewReader(r.body.Data))
-		r.request.ContentLength = int64(len(r.body.Data))
-		r.request.Header.Set(ContentLength, strconv.Itoa(len(r.body.Data)))
+		{
+			r.request.Body = io.NopCloser(bytes.NewReader(r.body.Bytes))
 
+			contentLength := len(r.body.Bytes)
+			r.request.ContentLength = int64(contentLength)
+			r.request.Header.Set(ContentLength, strconv.Itoa(contentLength))
+			r.request.Header.Set(ContentType, r.body.ContentType)
+		}
 	case BodyTypeReader:
-		if r.request.Body != nil {
-			_ = r.request.Body.Close()
-		}
-		r.request.Body = r.body.Reader
-		r.request.ContentLength = r.body.ContentLength
-		r.request.Header.Set(ContentType, r.body.ContentType)
+		{
+			if r.request.Body != nil {
+				_ = r.request.Body.Close()
+			}
+			r.request.Body = r.body.Reader
 
-	case BodyTypeJSON:
-		jsonData, err := json.Marshal(r.body.JSON)
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON: %w", err)
+			contentLength := int(r.body.ContentLength)
+			r.request.ContentLength = int64(contentLength)
+			r.request.Header.Set(ContentLength, strconv.Itoa(contentLength))
+			r.request.Header.Set(ContentType, r.body.ContentType)
 		}
-		r.request.Body = io.NopCloser(bytes.NewReader(jsonData))
-		r.request.ContentLength = int64(len(jsonData))
-		r.request.Header.Set(ContentLength, strconv.Itoa(len(jsonData)))
-		r.request.Header.Set(ContentType, ApplicationJSON)
+	case BodyTypeJSON:
+		{
+			jsonData, err := json.Marshal(r.body.JSON)
+			if err != nil {
+				return fmt.Errorf("failed to marshal JSON: %w", err)
+			}
+			r.request.Body = io.NopCloser(bytes.NewReader(jsonData))
+
+			contentLength := len(jsonData)
+			r.request.ContentLength = int64(contentLength)
+			r.request.Header.Set(ContentLength, strconv.Itoa(contentLength))
+			r.request.Header.Set(ContentType, ApplicationJSON)
+		}
 	}
 
 	return nil
@@ -110,7 +122,7 @@ func (r *Request) Body(body io.ReadCloser, contentType string, contentLength int
 }
 
 func (r *Request) Bytes(body []byte, contentType string) *Request {
-	r.body = BodyOp{Type: BodyTypeBytes, Data: body, ContentType: contentType, ContentLength: int64(len(body))}
+	r.body = BodyOp{Type: BodyTypeBytes, Bytes: body, ContentType: contentType, ContentLength: int64(len(body))}
 	return r
 }
 
