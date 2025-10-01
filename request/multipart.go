@@ -27,6 +27,10 @@ func NewMultipart(ctx context.Context, c *http.Client, method, url string) *Mult
 }
 
 func NewMultipartWithOpsCapacity(ctx context.Context, c *http.Client, method, url string, opsCapacity int) *Multipart {
+	if opsCapacity < defaultOpsCapacity {
+		opsCapacity = defaultOpsCapacity
+	}
+
 	r := &Multipart{
 		client:  c,
 		headers: make([]ItemOp, 0, opsCapacity/4),
