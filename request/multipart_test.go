@@ -9,8 +9,8 @@ import (
 
 func TestNewMultipart(t *testing.T) {
 	m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-	if m.Err() != nil {
-		t.Fatalf("unexpected error: %v", m.Err())
+	if m == nil {
+		t.Fatal("expected non-nil multipart")
 	}
 }
 
@@ -24,9 +24,6 @@ func TestMultipartMethods(t *testing.T) {
 	m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
 	m.Header("X-Test", "1").Param("foo", "bar").Bool("b", true).Float("f", 1.23)
 	m.File("file", "test.txt", bytes.NewReader([]byte("test content")))
-	if m.Err() != nil {
-		t.Fatalf("unexpected error: %v", m.Err())
-	}
 }
 
 func BenchmarkMultipartMethods(b *testing.B) {

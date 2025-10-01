@@ -10,8 +10,8 @@ import (
 
 func TestNewRequest(t *testing.T) {
 	r := NewRequest(context.Background(), &http.Client{}, http.MethodGet, "http://example.com")
-	if r.Err() != nil {
-		t.Fatalf("unexpected error: %v", r.Err())
+	if r == nil {
+		t.Fatal("expected non-nil request")
 	}
 }
 
@@ -26,13 +26,7 @@ func TestRequestMethods(t *testing.T) {
 	r.Header("X-Test", "1").Param("foo", "bar").Bool("b", true).Float("f", 1.23)
 	body := []byte(`{"a":1}`)
 	r.Bytes(body)
-	if r.Err() != nil {
-		t.Fatalf("unexpected error: %v", r.Err())
-	}
 	r.JSON(map[string]any{"foo": "bar"})
-	if r.Err() != nil {
-		t.Fatalf("unexpected error: %v", r.Err())
-	}
 	r.Body(io.NopCloser(bytes.NewReader([]byte("test"))))
 }
 

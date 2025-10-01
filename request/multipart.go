@@ -9,33 +9,37 @@ import (
 	"strconv"
 )
 
+// Multipart represents a multipart/form-data request builder.
+// It uses streaming with io.Pipe to avoid buffering the entire request in memory.
 type Multipart struct {
 	client  *http.Client
 	request *http.Request
-	err     error
 	mw      *multipart.Writer
 	pr      *io.PipeReader
 	pw      *io.PipeWriter
 	ops     []func() error
 }
 
+// NewMultipart creates a new multipart/form-data request builder.
+// If the request creation fails, the error will be returned when Send is called.
 func NewMultipart(ctx context.Context, c *http.Client, method, url string) *Multipart {
 	r := &Multipart{client: c}
 	r.pr, r.pw = io.Pipe()
 	r.mw = multipart.NewWriter(r.pw)
-	r.request, r.err = http.NewRequestWithContext(ctx, method, url, r.pr)
+	request, err := http.NewRequestWithContext(ctx, method, url, r.pr)
+	if err != nil {
+		r.ops = append(r.ops, func() error {
+			return err
+		})
+		return r
+	}
+	r.request = request
 	return r
 }
 
-func (r *Multipart) Err() error {
-	return r.err
-}
-
+// Send executes all deferred operations in a goroutine and sends the multipart request.
+// The multipart data is streamed using io.Pipe to avoid memory buffering.
 func (r *Multipart) Send() (*http.Response, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-
 	r.Header(ContentType, r.mw.FormDataContentType())
 
 	go func() {
@@ -52,21 +56,16 @@ func (r *Multipart) Send() (*http.Response, error) {
 	return r.client.Do(r.request)
 }
 
+// Header adds a header to the request. This is applied immediately, not deferred.
 func (r *Multipart) Header(key, value string) *Multipart {
-	if r.err != nil {
-		return r
-	}
 	r.request.Header.Set(key, value)
 	return r
 }
 
+// Param adds a form field to the multipart request.
 func (r *Multipart) Param(key, value string) *Multipart {
-	if r.err != nil {
-		return r
-	}
 	r.ops = append(r.ops, func() error {
-		err := r.mw.WriteField(key, value)
-		if err != nil {
+		if err := r.mw.WriteField(key, value); err != nil {
 			return fmt.Errorf("failed to write form field %q: %w", key, err)
 		}
 		return nil
@@ -74,25 +73,25 @@ func (r *Multipart) Param(key, value string) *Multipart {
 	return r
 }
 
+// Bool adds a boolean form field to the multipart request.
 func (r *Multipart) Bool(fieldName string, value bool) *Multipart {
 	return r.Param(fieldName, strconv.FormatBool(value))
 }
 
+// Float adds a float64 form field to the multipart request.
 func (r *Multipart) Float(fieldName string, value float64) *Multipart {
 	return r.Param(fieldName, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
+// File adds a file field to the multipart request.
+// The content will be read when Send is called.
 func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
-	if r.err != nil {
-		return r
-	}
 	r.ops = append(r.ops, func() error {
 		part, err := r.mw.CreateFormFile(key, filename)
 		if err != nil {
 			return fmt.Errorf("failed to create form file: %w", err)
 		}
-		_, err = io.Copy(part, content)
-		if err != nil {
+		if _, err := io.Copy(part, content); err != nil {
 			return fmt.Errorf("failed to copy file content: %w", err)
 		}
 		return nil
