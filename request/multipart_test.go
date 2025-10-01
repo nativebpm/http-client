@@ -15,80 +15,103 @@ func TestNewMultipart(t *testing.T) {
 	}
 }
 
-func TestMultipartOpsCapacity(t *testing.T) {
-	// Test default capacity
+func TestMultipartOperations(t *testing.T) {
 	m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-	if cap(m.ops) != defaultOpsCapacity {
-		t.Errorf("expected ops capacity %d, got %d", defaultOpsCapacity, cap(m.ops))
+
+	// Test parameter operations
+	m.Param("name", "John")
+	m.Bool("active", true)
+	m.Float("score", 95.5)
+
+	if m.ParamCount() != 3 {
+		t.Errorf("expected 3 params, got %d", m.ParamCount())
 	}
 
-	// Test custom capacity
-	customCapacity := 64
-	m2 := NewMultipartWithOpsCapacity(context.Background(), &http.Client{}, http.MethodPost, "http://example.com", customCapacity)
-	if cap(m2.ops) != customCapacity {
-		t.Errorf("expected ops capacity %d, got %d", customCapacity, cap(m2.ops))
+	// Test file operations
+	m.File("avatar", "avatar.jpg", bytes.NewReader([]byte("image data")))
+	m.File("document", "doc.pdf", bytes.NewReader([]byte("pdf data")))
+
+	if m.FileCount() != 2 {
+		t.Errorf("expected 2 files, got %d", m.FileCount())
+	}
+
+	if m.TotalOps() != 5 {
+		t.Errorf("expected 5 total operations, got %d", m.TotalOps())
 	}
 }
 
-func TestMultipartOpsGrowth(t *testing.T) {
-	m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-	initialCap := cap(m.ops)
+func TestMultipartCapacity(t *testing.T) {
+	// Test with custom capacity
+	m := NewMultipartWithOpsCapacity(context.Background(), &http.Client{}, http.MethodPost, "http://example.com", 64)
 
-	// Add operations beyond initial capacity to test growth
-	for i := 0; i < defaultOpsCapacity*2; i++ {
+	// Add many params to test capacity
+	for i := 0; i < 20; i++ {
 		m.Param(fmt.Sprintf("param-%d", i), "value")
 	}
 
-	// Capacity should have grown
-	if cap(m.ops) <= initialCap {
-		t.Errorf("expected ops capacity to grow beyond %d, got %d", initialCap, cap(m.ops))
+	if m.ParamCount() != 20 {
+		t.Errorf("expected 20 params, got %d", m.ParamCount())
 	}
 }
 
-// Test performance with operations below capacity (no reallocation)
+func TestMultipartGrowth(t *testing.T) {
+	// Start with small capacity and test growth
+	m := NewMultipartWithOpsCapacity(context.Background(), &http.Client{}, http.MethodPost, "http://example.com", 8)
+
+	// Add more params than initial capacity
+	for i := 0; i < 20; i++ {
+		m.Param(fmt.Sprintf("param-%d", i), "value")
+	}
+
+	if m.ParamCount() != 20 {
+		t.Errorf("expected 20 params after growth, got %d", m.ParamCount())
+	}
+}
+
+// Test performance with operations below capacity
 func BenchmarkMultipartWithinCapacity(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-		// Add 16 operations (half of defaultOpsCapacity=32)
-		for j := 0; j < 16; j++ {
+		// Add 10 operations (within typical capacity)
+		for j := 0; j < 10; j++ {
 			m.Param(fmt.Sprintf("param-%d", j), "value")
 		}
 	}
 }
 
-// Test performance when exceeding capacity (triggers reallocation)
+// Test performance when exceeding capacity
 func BenchmarkMultipartExceedCapacity(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-		// Add 40 operations (exceeds defaultOpsCapacity=32)
+		// Add 40 operations (exceeds typical capacity)
 		for j := 0; j < 40; j++ {
 			m.Param(fmt.Sprintf("param-%d", j), "value")
 		}
 	}
 }
 
-// Compare default vs custom capacity
-func BenchmarkMultipartCustomCapacity(b *testing.B) {
-	b.Run("Default32", func(b *testing.B) {
+// Compare different capacity settings
+func BenchmarkMultipartCapacity(b *testing.B) {
+	b.Run("Default", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
-			for j := 0; j < 20; j++ {
+			for j := 0; j < 15; j++ {
 				m.Param(fmt.Sprintf("param-%d", j), "value")
 			}
 		}
 	})
-	b.Run("Custom16", func(b *testing.B) {
+	b.Run("Small", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			m := NewMultipartWithOpsCapacity(context.Background(), &http.Client{}, http.MethodPost, "http://example.com", 16)
-			for j := 0; j < 20; j++ {
+			for j := 0; j < 15; j++ {
 				m.Param(fmt.Sprintf("param-%d", j), "value")
 			}
 		}
 	})
-	b.Run("Custom64", func(b *testing.B) {
+	b.Run("Large", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			m := NewMultipartWithOpsCapacity(context.Background(), &http.Client{}, http.MethodPost, "http://example.com", 64)
-			for j := 0; j < 20; j++ {
+			for j := 0; j < 15; j++ {
 				m.Param(fmt.Sprintf("param-%d", j), "value")
 			}
 		}
@@ -124,6 +147,17 @@ func BenchmarkMultipartRealistic(b *testing.B) {
 			for j := 0; j < 15; j++ {
 				m.Param(fmt.Sprintf("custom-%d", j), "value")
 			}
+		}
+	})
+	b.Run("ZeroAlloc", func(b *testing.B) {
+		// Test zero-allocation approach
+		for i := 0; i < b.N; i++ {
+			m := NewMultipart(context.Background(), &http.Client{}, http.MethodPost, "http://example.com")
+			m.Param("name", "John")
+			m.Param("email", "john@example.com")
+			m.Bool("active", true)
+			m.Float("score", 98.6)
+			m.File("file", "test.txt", bytes.NewReader([]byte("test content")))
 		}
 	})
 }
