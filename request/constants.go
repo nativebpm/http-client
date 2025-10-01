@@ -8,5 +8,5 @@ const (
 )
 
 const (
-	defaultOpsCapacity = 16 // operations
+	defaultOpsCapacity = 32 // operations
 )
