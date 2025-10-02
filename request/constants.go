@@ -7,6 +7,13 @@ const (
 	ContentLength   = "Content-Length"
 )
 
+type DataType int
+
 const (
-	defaultOpsCapacity = 32 // operations
+	NoneType DataType = iota
+	ParamType
+	FileType
+	JSONType
+	BytesType
+	ReaderType
 )
