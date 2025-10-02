@@ -35,39 +35,6 @@ func NewMultipart(ctx context.Context, client *http.Client, method, url string) 
 	return r
 }
 
-// Param adds a string field to the multipart form.
-func (r *Multipart) Param(key, value string) *Multipart {
-	r.data = append(r.data, formData{dataType: ParamType, key: key, value: value})
-	return r
-}
-
-// Bool adds a boolean field to the multipart form.
-func (r *Multipart) Bool(key string, value bool) *Multipart {
-	return r.Param(key, strconv.FormatBool(value))
-}
-
-// Float adds a float64 field to the multipart form.
-func (r *Multipart) Float(key string, value float64) *Multipart {
-	return r.Param(key, strconv.FormatFloat(value, 'f', -1, 64))
-}
-
-// Int adds an integer field to the multipart form.
-func (r *Multipart) Int(key string, value int) *Multipart {
-	return r.Param(key, strconv.Itoa(value))
-}
-
-// File adds a file field to the multipart form and streams the content.
-func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
-	r.data = append(r.data, formData{dataType: FileType, key: key, value: filename, file: content})
-	return r
-}
-
-// Header sets an HTTP header on the request.
-func (r *Multipart) Header(key, value string) *Multipart {
-	r.request.Header.Set(key, value)
-	return r
-}
-
 // Send executes the HTTP request and returns the response.
 // Starts a goroutine that streams collected form data via io.Pipe.
 // The goroutine respects context cancellation to prevent leaks.
@@ -125,4 +92,37 @@ func (r *Multipart) Send() (*http.Response, error) {
 	default:
 		return resp, nil
 	}
+}
+
+// Header sets an HTTP header on the request.
+func (r *Multipart) Header(key, value string) *Multipart {
+	r.request.Header.Set(key, value)
+	return r
+}
+
+// Param adds a string field to the multipart form.
+func (r *Multipart) Param(key, value string) *Multipart {
+	r.data = append(r.data, formData{dataType: ParamType, key: key, value: value})
+	return r
+}
+
+// Bool adds a boolean field to the multipart form.
+func (r *Multipart) Bool(key string, value bool) *Multipart {
+	return r.Param(key, strconv.FormatBool(value))
+}
+
+// Float adds a float64 field to the multipart form.
+func (r *Multipart) Float(key string, value float64) *Multipart {
+	return r.Param(key, strconv.FormatFloat(value, 'f', -1, 64))
+}
+
+// Int adds an integer field to the multipart form.
+func (r *Multipart) Int(key string, value int) *Multipart {
+	return r.Param(key, strconv.Itoa(value))
+}
+
+// File adds a file field to the multipart form and streams the content.
+func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
+	r.data = append(r.data, formData{dataType: FileType, key: key, value: filename, file: content})
+	return r
 }
