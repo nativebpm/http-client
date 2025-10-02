@@ -45,7 +45,6 @@ func (r *Multipart) Send() (*http.Response, error) {
 	r.request.Body = pr
 	r.request.Header.Set("Content-Type", mw.FormDataContentType())
 
-	errCh := make(chan error, 1)
 	ctx := r.request.Context()
 
 	go func() {
@@ -56,42 +55,32 @@ func (r *Multipart) Send() (*http.Response, error) {
 			select {
 			case <-ctx.Done():
 				pw.CloseWithError(ctx.Err())
-				errCh <- ctx.Err()
 				return
 			default:
 			}
 
-			var err error
 			switch form.dataType {
 			case ParamType:
-				err = mw.WriteField(form.key, form.value)
-			case FileType:
-				var part io.Writer
-				part, err = mw.CreateFormFile(form.key, form.value)
-				if err == nil {
-					_, err = io.Copy(part, form.file)
+				if err := mw.WriteField(form.key, form.value); err != nil {
+					pw.CloseWithError(err)
+					return
 				}
-			}
-			if err != nil {
-				pw.CloseWithError(err)
-				errCh <- err
-				return
+			case FileType:
+				part, err := mw.CreateFormFile(form.key, form.value)
+				if err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+				if _, err := io.Copy(part, form.file); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+
 			}
 		}
 	}()
 
-	resp, err := r.client.Do(r.request)
-	if err != nil {
-		return nil, err
-	}
-
-	select {
-	case err := <-errCh:
-		resp.Body.Close()
-		return nil, err
-	default:
-		return resp, nil
-	}
+	return r.client.Do(r.request)
 }
 
 // Header sets an HTTP header on the request.
