@@ -39,7 +39,6 @@ func (r *Request) Send() (*http.Response, error) {
 		if r.body.data != nil {
 			pr, pw := io.Pipe()
 			r.request.Body = pr
-			r.request.Header.Set(ContentType, ApplicationJSON)
 			ctx := r.request.Context()
 
 			go func() {
@@ -104,5 +103,6 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 // The data will be streamed during Send() with context cancellation support.
 func (r *Request) JSON(data any) *Request {
 	r.body = reqData{dataType: JSONType, data: data}
+	r.request.Header.Set(ContentType, ApplicationJSON)
 	return r
 }
