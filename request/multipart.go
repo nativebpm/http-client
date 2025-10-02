@@ -6,7 +6,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
-	"sync"
 )
 
 type formData struct {
@@ -22,55 +21,18 @@ type Multipart struct {
 	client  *http.Client
 	request *http.Request
 	data    chan formData
-	done    chan struct{}
-	mw      *multipart.Writer
-	pw      *io.PipeWriter
-	wg      sync.WaitGroup
 }
 
 // NewMultipart creates a new streaming multipart/form-data request builder.
-// A worker goroutine starts immediately to process form data.
 func NewMultipart(ctx context.Context, client *http.Client, method, url string) *Multipart {
-	pr, pw := io.Pipe()
-	done := make(chan struct{})
-
 	r := &Multipart{
 		client: client,
 		data:   make(chan formData, 100),
-		pw:     pw,
-		mw:     multipart.NewWriter(pw),
-		done:   done,
 	}
 
-	rdr := &readerWrapper{reader: pr, done: done}
-	r.request, _ = http.NewRequestWithContext(ctx, method, url, rdr)
-	r.request.Header.Set("Content-Type", r.mw.FormDataContentType())
-
-	r.wg.Add(1)
-	go r.worker()
+	r.request, _ = http.NewRequestWithContext(ctx, method, url, nil)
 
 	return r
-}
-
-func (r *Multipart) worker() {
-	defer r.wg.Done()
-	for form := range r.data {
-		var err error
-		switch form.dataType {
-		case ParamType:
-			err = r.mw.WriteField(form.key, form.value)
-		case FileType:
-			var part io.Writer
-			part, err = r.mw.CreateFormFile(form.key, form.value)
-			if err == nil {
-				_, err = io.Copy(part, form.file)
-			}
-		}
-		if err != nil {
-			r.pw.CloseWithError(err)
-			return
-		}
-	}
 }
 
 // Param adds a string field to the multipart form.
@@ -107,30 +69,53 @@ func (r *Multipart) Header(key, value string) *Multipart {
 }
 
 // Send executes the HTTP request and returns the response.
+// Starts a worker goroutine to write multipart data from the buffered channel.
 func (r *Multipart) Send() (*http.Response, error) {
-	respCh := make(chan *http.Response, 1)
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+
+	r.request.Body = pr
+	r.request.Header.Set("Content-Type", mw.FormDataContentType())
+
 	errCh := make(chan error, 1)
 
+	// Worker goroutine: reads from channel and writes to multipart writer
 	go func() {
-		resp, err := r.client.Do(r.request)
-		if err != nil {
-			errCh <- err
-			return
+		defer pw.Close()
+		defer mw.Close()
+
+		close(r.data)
+
+		for form := range r.data {
+			var err error
+			switch form.dataType {
+			case ParamType:
+				err = mw.WriteField(form.key, form.value)
+			case FileType:
+				var part io.Writer
+				part, err = mw.CreateFormFile(form.key, form.value)
+				if err == nil {
+					_, err = io.Copy(part, form.file)
+				}
+			}
+			if err != nil {
+				pw.CloseWithError(err)
+				errCh <- err
+				return
+			}
 		}
-		respCh <- resp
 	}()
 
-	<-r.done
-
-	close(r.data)
-	r.wg.Wait()
-	r.mw.Close()
-	r.pw.Close()
+	resp, err := r.client.Do(r.request)
+	if err != nil {
+		return nil, err
+	}
 
 	select {
-	case resp := <-respCh:
-		return resp, nil
 	case err := <-errCh:
+		resp.Body.Close()
 		return nil, err
+	default:
+		return resp, nil
 	}
 }
