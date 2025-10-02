@@ -15,19 +15,19 @@ type formData struct {
 }
 
 // Multipart provides a streaming multipart/form-data builder for HTTP requests.
-// Uses io.Pipe to stream data without buffering in memory.
+// Form data is collected in a slice and streamed via io.Pipe when Send() is called.
 // Methods are chainable for fluent API usage.
 type Multipart struct {
 	client  *http.Client
 	request *http.Request
-	data    chan formData
+	data    []formData
 }
 
 // NewMultipart creates a new streaming multipart/form-data request builder.
 func NewMultipart(ctx context.Context, client *http.Client, method, url string) *Multipart {
 	r := &Multipart{
 		client: client,
-		data:   make(chan formData, 100),
+		data:   make([]formData, 0, 16),
 	}
 
 	r.request, _ = http.NewRequestWithContext(ctx, method, url, nil)
@@ -37,7 +37,7 @@ func NewMultipart(ctx context.Context, client *http.Client, method, url string) 
 
 // Param adds a string field to the multipart form.
 func (r *Multipart) Param(key, value string) *Multipart {
-	r.data <- formData{dataType: ParamType, key: key, value: value}
+	r.data = append(r.data, formData{dataType: ParamType, key: key, value: value})
 	return r
 }
 
@@ -58,7 +58,7 @@ func (r *Multipart) Int(key string, value int) *Multipart {
 
 // File adds a file field to the multipart form and streams the content.
 func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
-	r.data <- formData{dataType: FileType, key: key, value: filename, file: content}
+	r.data = append(r.data, formData{dataType: FileType, key: key, value: filename, file: content})
 	return r
 }
 
@@ -69,7 +69,7 @@ func (r *Multipart) Header(key, value string) *Multipart {
 }
 
 // Send executes the HTTP request and returns the response.
-// Starts a goroutine that streams multipart data from the buffered channel.
+// Starts a goroutine that streams collected form data via io.Pipe.
 // The goroutine respects context cancellation to prevent leaks.
 func (r *Multipart) Send() (*http.Response, error) {
 	pr, pw := io.Pipe()
@@ -85,9 +85,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 		defer pw.Close()
 		defer mw.Close()
 
-		close(r.data)
-
-		for form := range r.data {
+		for _, form := range r.data {
 			select {
 			case <-ctx.Done():
 				pw.CloseWithError(ctx.Err())

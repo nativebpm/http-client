@@ -4,7 +4,6 @@ package request
 const (
 	ApplicationJSON = "application/json"
 	ContentType     = "Content-Type"
-	ContentLength   = "Content-Length"
 )
 
 type DataType int
@@ -14,6 +13,4 @@ const (
 	ParamType
 	FileType
 	JSONType
-	BytesType
-	ReaderType
 )
