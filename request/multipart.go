@@ -69,7 +69,8 @@ func (r *Multipart) Header(key, value string) *Multipart {
 }
 
 // Send executes the HTTP request and returns the response.
-// Starts a worker goroutine to write multipart data from the buffered channel.
+// Starts a goroutine that streams multipart data from the buffered channel.
+// The goroutine respects context cancellation to prevent leaks.
 func (r *Multipart) Send() (*http.Response, error) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
@@ -78,8 +79,8 @@ func (r *Multipart) Send() (*http.Response, error) {
 	r.request.Header.Set("Content-Type", mw.FormDataContentType())
 
 	errCh := make(chan error, 1)
+	ctx := r.request.Context()
 
-	// Worker goroutine: reads from channel and writes to multipart writer
 	go func() {
 		defer pw.Close()
 		defer mw.Close()
@@ -87,6 +88,14 @@ func (r *Multipart) Send() (*http.Response, error) {
 		close(r.data)
 
 		for form := range r.data {
+			select {
+			case <-ctx.Done():
+				pw.CloseWithError(ctx.Err())
+				errCh <- ctx.Err()
+				return
+			default:
+			}
+
 			var err error
 			switch form.dataType {
 			case ParamType:

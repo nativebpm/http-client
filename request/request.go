@@ -8,11 +8,17 @@ import (
 	"strconv"
 )
 
+type reqData struct {
+	dataType DataType
+	data     any
+}
+
 // Request provides a builder for standard HTTP requests.
 // Methods are chainable for fluent API usage.
 type Request struct {
 	client  *http.Client
 	request *http.Request
+	body    reqData
 }
 
 // NewRequest creates a new HTTP request builder.
@@ -25,7 +31,36 @@ func NewRequest(ctx context.Context, client *http.Client, method, url string) *R
 }
 
 // Send executes the HTTP request and returns the response.
+// For JSON requests, starts a goroutine that respects context cancellation.
 func (r *Request) Send() (*http.Response, error) {
+
+	switch r.body.dataType {
+	case JSONType:
+		if r.body.data != nil {
+			pr, pw := io.Pipe()
+			r.request.Body = pr
+			r.request.Header.Set(ContentType, ApplicationJSON)
+			ctx := r.request.Context()
+
+			go func() {
+				defer pw.Close()
+
+				select {
+				case <-ctx.Done():
+					pw.CloseWithError(ctx.Err())
+					return
+				default:
+				}
+
+				encoder := json.NewEncoder(pw)
+				if err := encoder.Encode(r.body.data); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}()
+		}
+	}
+
 	return r.client.Do(r.request)
 }
 
@@ -65,21 +100,9 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 	return r
 }
 
-// JSON sets the request body as JSON and streams the encoding.
+// JSON sets the request body as JSON.
+// The data will be streamed during Send() with context cancellation support.
 func (r *Request) JSON(data any) *Request {
-	pr, pw := io.Pipe()
-
-	r.request.Body = pr
-	r.request.Header.Set(ContentType, ApplicationJSON)
-
-	go func() {
-		encoder := json.NewEncoder(pw)
-		if err := encoder.Encode(data); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-		pw.Close()
-	}()
-
+	r.body = reqData{dataType: JSONType, data: data}
 	return r
 }
