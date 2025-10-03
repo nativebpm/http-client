@@ -11,14 +11,14 @@ import (
 
 type reqData struct {
 	dataType DataType
-	data     any
+	body     any
 }
 
 // Request provides a builder for standard HTTP requests.
 type Request struct {
 	client     *http.Client
 	request    *http.Request
-	body       reqData
+	data       reqData
 	cancelFunc context.CancelFunc
 }
 
@@ -45,8 +45,8 @@ func (r *Request) Send() (*http.Response, error) {
 		defer r.cancelFunc()
 	}
 
-	if r.body.data != nil {
-		switch r.body.dataType {
+	if r.data.body != nil {
+		switch r.data.dataType {
 		case JSONType:
 			pr, pw := io.Pipe()
 			r.request.Body = pr
@@ -63,7 +63,7 @@ func (r *Request) Send() (*http.Response, error) {
 				}
 
 				encoder := json.NewEncoder(pw)
-				if err := encoder.Encode(r.body.data); err != nil {
+				if err := encoder.Encode(r.data.body); err != nil {
 					pw.CloseWithError(err)
 					return
 				}
@@ -112,7 +112,7 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 
 // JSON sets the request body as JSON.
 func (r *Request) JSON(data any) *Request {
-	r.body = reqData{dataType: JSONType, data: data}
+	r.data = reqData{dataType: JSONType, body: data}
 	r.request.Header.Set(ContentType, ApplicationJSON)
 	return r
 }
