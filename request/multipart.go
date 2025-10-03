@@ -11,8 +11,8 @@ import (
 
 type formData struct {
 	dataType   DataType
-	file       io.Reader
 	key, value string
+	file       io.Reader
 }
 
 // Multipart provides a streaming multipart/form-data builder for HTTP requests.
