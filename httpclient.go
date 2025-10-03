@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/nativebpm/http-client/formdata"
 	"github.com/nativebpm/http-client/request"
 )
 
@@ -35,13 +36,13 @@ func (c *Client) url(path string) string {
 }
 
 // Multipart creates a multipart/form-data POST request builder.
-func (c *Client) Multipart(ctx context.Context, path string) *request.Multipart {
-	return request.NewMultipart(ctx, c.client, http.MethodPost, c.url(path))
+func (c *Client) Multipart(ctx context.Context, path string) *formdata.Multipart {
+	return formdata.NewMultipart(ctx, c.client, http.MethodPost, c.url(path))
 }
 
 // MultipartWithMethod creates a multipart/form-data request builder with HTTP method.
-func (c *Client) MultipartWithMethod(ctx context.Context, path, method string) *request.Multipart {
-	return request.NewMultipart(ctx, c.client, method, c.url(path))
+func (c *Client) MultipartWithMethod(ctx context.Context, path, method string) *formdata.Multipart {
+	return formdata.NewMultipart(ctx, c.client, method, c.url(path))
 }
 
 // Request creates a standard HTTP request builder.

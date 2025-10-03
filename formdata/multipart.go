@@ -1,4 +1,4 @@
-package request
+package formdata
 
 import (
 	"context"
@@ -8,6 +8,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+type DataType int
+
+const (
+	NoneType DataType = iota
+	ParamType
+	FileType
 )
 
 type formData struct {
