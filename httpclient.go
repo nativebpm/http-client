@@ -1,5 +1,4 @@
 // Package httpclient provides a convenient HTTP client with request builders.
-// It supports both regular and multipart requests with deferred operations.
 package httpclient
 
 import (
@@ -11,14 +10,13 @@ import (
 	"github.com/nativebpm/http-client/request"
 )
 
-// Client is an HTTP client that wraps http.Client with convenience methods.
-// It maintains a base URL and provides request builders for different HTTP methods.
+// Client wraps http.Client and provides request builders for different HTTP methods.
 type Client struct {
 	baseURL *url.URL
 	client  *http.Client
 }
 
-// NewClient creates a new HTTP client with the given http.Client and base URL.
+// NewClient creates a new HTTP client with the given base URL.
 // Returns an error if the base URL is invalid.
 func NewClient(client *http.Client, baseURL string) (*Client, error) {
 	u, err := url.Parse(baseURL)
@@ -26,48 +24,52 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 		return nil, fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	c := &Client{
+	return &Client{
 		client:  client,
 		baseURL: u,
-	}
-	return c, nil
+	}, nil
 }
 
 func (c *Client) url(path string) string {
 	return c.baseURL.JoinPath(path).String()
 }
 
-// MultipartPOST creates a multipart POST request builder for the given path.
-func (c *Client) MultipartPOST(ctx context.Context, path string) *request.Multipart {
+// Multipart creates a multipart/form-data POST request builder.
+func (c *Client) Multipart(ctx context.Context, path string) *request.Multipart {
 	return request.NewMultipart(ctx, c.client, http.MethodPost, c.url(path))
 }
 
-// MultipartPUT creates a multipart PUT request builder for the given path.
-func (c *Client) MultipartPUT(ctx context.Context, path string) *request.Multipart {
-	return request.NewMultipart(ctx, c.client, http.MethodPut, c.url(path))
+// MultipartWithMethod creates a multipart/form-data request builder with HTTP method.
+func (c *Client) MultipartWithMethod(ctx context.Context, path, method string) *request.Multipart {
+	return request.NewMultipart(ctx, c.client, method, c.url(path))
 }
 
-// RequestGET creates a GET request builder for the given path.
-func (c *Client) RequestGET(ctx context.Context, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, http.MethodGet, c.url(path))
+// Request creates a standard HTTP request builder.
+func (c *Client) Request(ctx context.Context, method, path string) *request.Request {
+	return request.NewRequest(ctx, c.client, method, c.url(path))
 }
 
-// RequestPOST creates a POST request builder for the given path.
-func (c *Client) RequestPOST(ctx context.Context, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, http.MethodPost, c.url(path))
+// GET creates a GET request builder.
+func (c *Client) GET(ctx context.Context, path string) *request.Request {
+	return c.Request(ctx, http.MethodGet, path)
 }
 
-// RequestPUT creates a PUT request builder for the given path.
-func (c *Client) RequestPUT(ctx context.Context, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, http.MethodPut, c.url(path))
+// POST creates a POST request builder.
+func (c *Client) POST(ctx context.Context, path string) *request.Request {
+	return c.Request(ctx, http.MethodPost, path)
 }
 
-// RequestPATCH creates a PATCH request builder for the given path.
-func (c *Client) RequestPATCH(ctx context.Context, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, http.MethodPatch, c.url(path))
+// PUT creates a PUT request builder.
+func (c *Client) PUT(ctx context.Context, path string) *request.Request {
+	return c.Request(ctx, http.MethodPut, path)
 }
 
-// RequestDELETE creates a DELETE request builder for the given path.
-func (c *Client) RequestDELETE(ctx context.Context, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, http.MethodDelete, c.url(path))
+// PATCH creates a PATCH request builder.
+func (c *Client) PATCH(ctx context.Context, path string) *request.Request {
+	return c.Request(ctx, http.MethodPatch, path)
+}
+
+// DELETE creates a DELETE request builder.
+func (c *Client) DELETE(ctx context.Context, path string) *request.Request {
+	return c.Request(ctx, http.MethodDelete, path)
 }

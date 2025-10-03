@@ -25,13 +25,21 @@ func BenchmarkNewClient(b *testing.B) {
 func TestClientMethods(t *testing.T) {
 	client, _ := NewClient(&http.Client{}, "http://example.com")
 	ctx := context.Background()
-	_ = client.MultipartPOST(ctx, "/test")
-	_ = client.MultipartPUT(ctx, "/test")
-	_ = client.RequestGET(ctx, "/test")
-	_ = client.RequestPOST(ctx, "/test")
-	_ = client.RequestPUT(ctx, "/test")
-	_ = client.RequestPATCH(ctx, "/test")
-	_ = client.RequestDELETE(ctx, "/test")
+
+	// Test multipart methods
+	_ = client.Multipart(ctx, "/test")
+	_ = client.MultipartWithMethod(ctx, "/test", http.MethodPut)
+
+	// Test request methods
+	_ = client.Request(ctx, http.MethodGet, "/test")
+	_ = client.Request(ctx, http.MethodPost, "/test")
+
+	// Test convenience methods
+	_ = client.GET(ctx, "/test")
+	_ = client.POST(ctx, "/test")
+	_ = client.PUT(ctx, "/test")
+	_ = client.PATCH(ctx, "/test")
+	_ = client.DELETE(ctx, "/test")
 }
 
 func BenchmarkClientMethods(b *testing.B) {
@@ -39,12 +47,12 @@ func BenchmarkClientMethods(b *testing.B) {
 	ctx := context.Background()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = client.MultipartPOST(ctx, "/test")
-		_ = client.MultipartPUT(ctx, "/test")
-		_ = client.RequestGET(ctx, "/test")
-		_ = client.RequestPOST(ctx, "/test")
-		_ = client.RequestPUT(ctx, "/test")
-		_ = client.RequestPATCH(ctx, "/test")
-		_ = client.RequestDELETE(ctx, "/test")
+		_ = client.Multipart(ctx, "/test")
+		_ = client.MultipartWithMethod(ctx, "/test", http.MethodPut)
+		_ = client.GET(ctx, "/test")
+		_ = client.POST(ctx, "/test")
+		_ = client.PUT(ctx, "/test")
+		_ = client.PATCH(ctx, "/test")
+		_ = client.DELETE(ctx, "/test")
 	}
 }

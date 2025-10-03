@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type formData struct {
@@ -15,12 +16,11 @@ type formData struct {
 }
 
 // Multipart provides a streaming multipart/form-data builder for HTTP requests.
-// Form data is collected in a slice and streamed via io.Pipe when Send() is called.
-// Methods are chainable for fluent API usage.
 type Multipart struct {
-	client  *http.Client
-	request *http.Request
-	data    []formData
+	client     *http.Client
+	request    *http.Request
+	data       []formData
+	cancelFunc context.CancelFunc
 }
 
 // NewMultipart creates a new streaming multipart/form-data request builder.
@@ -35,10 +35,20 @@ func NewMultipart(ctx context.Context, client *http.Client, method, url string) 
 	return r
 }
 
+// Timeout sets a timeout for the request.
+func (r *Multipart) Timeout(duration time.Duration) *Multipart {
+	ctx, cancel := context.WithTimeout(r.request.Context(), duration)
+	r.cancelFunc = cancel
+	r.request = r.request.WithContext(ctx)
+	return r
+}
+
 // Send executes the HTTP request and returns the response.
-// Starts a goroutine that streams collected form data via io.Pipe.
-// The goroutine respects context cancellation to prevent leaks.
 func (r *Multipart) Send() (*http.Response, error) {
+	if r.cancelFunc != nil {
+		defer r.cancelFunc()
+	}
+
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 
@@ -110,7 +120,7 @@ func (r *Multipart) Int(key string, value int) *Multipart {
 	return r.Param(key, strconv.Itoa(value))
 }
 
-// File adds a file field to the multipart form and streams the content.
+// File adds a file field to the multipart form.
 func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
 	r.data = append(r.data, formData{dataType: FileType, key: key, value: filename, file: content})
 	return r

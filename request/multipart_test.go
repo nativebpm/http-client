@@ -595,3 +595,106 @@ func TestMultipart_ChainedCalls(t *testing.T) {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
 	}
 }
+
+func TestMultipart_Timeout(t *testing.T) {
+// Create a slow server
+server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+time.Sleep(200 * time.Millisecond)
+w.WriteHeader(http.StatusOK)
+}))
+defer server.Close()
+
+client := &http.Client{}
+
+// Test 1: Request should timeout
+ctx := context.Background()
+_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+Param("field", "value").
+Timeout(50 * time.Millisecond).
+Send()
+
+if err == nil {
+t.Error("Expected timeout error, got nil")
+}
+if !strings.Contains(err.Error(), "context deadline exceeded") {
+t.Errorf("Expected context deadline exceeded error, got: %v", err)
+}
+
+// Test 2: Request should succeed with longer timeout
+resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+Param("field", "value").
+Timeout(500 * time.Millisecond).
+Send()
+
+if err != nil {
+t.Errorf("Unexpected error: %v", err)
+}
+if resp != nil {
+resp.Body.Close()
+if resp.StatusCode != http.StatusOK {
+t.Errorf("Expected status 200, got %d", resp.StatusCode)
+}
+}
+}
+
+func TestMultipart_TimeoutChaining(t *testing.T) {
+server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+w.WriteHeader(http.StatusOK)
+}))
+defer server.Close()
+
+client := &http.Client{}
+ctx := context.Background()
+
+// Test chaining Timeout with other methods
+resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+Timeout(5 * time.Second).
+Header("X-Test", "value").
+Param("field", "value").
+File("file", "test.txt", strings.NewReader("content")).
+Send()
+
+if err != nil {
+t.Errorf("Unexpected error: %v", err)
+}
+if resp != nil {
+resp.Body.Close()
+}
+}
+
+func TestMultipart_TimeoutWithLargeFile(t *testing.T) {
+// Server that reads slowly
+server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// Read body slowly
+buf := make([]byte, 1024)
+for {
+_, err := r.Body.Read(buf)
+if err == io.EOF {
+break
+}
+if err != nil {
+return
+}
+time.Sleep(10 * time.Millisecond) // Slow read
+}
+w.WriteHeader(http.StatusOK)
+}))
+defer server.Close()
+
+client := &http.Client{}
+ctx := context.Background()
+
+// Large file that should timeout during upload
+largeContent := bytes.Repeat([]byte("x"), 1024*100) // 100KB
+_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+File("largefile", "large.dat", bytes.NewReader(largeContent)).
+Timeout(50 * time.Millisecond).
+Send()
+
+if err == nil {
+t.Error("Expected timeout error for large file upload, got nil")
+}
+if !strings.Contains(err.Error(), "context deadline exceeded") {
+t.Errorf("Expected context deadline exceeded error, got: %v", err)
+}
+}

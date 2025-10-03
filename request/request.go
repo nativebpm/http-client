@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type reqData struct {
@@ -14,11 +15,11 @@ type reqData struct {
 }
 
 // Request provides a builder for standard HTTP requests.
-// Methods are chainable for fluent API usage.
 type Request struct {
-	client  *http.Client
-	request *http.Request
-	body    reqData
+	client     *http.Client
+	request    *http.Request
+	body       reqData
+	cancelFunc context.CancelFunc
 }
 
 // NewRequest creates a new HTTP request builder.
@@ -30,9 +31,19 @@ func NewRequest(ctx context.Context, client *http.Client, method, url string) *R
 	}
 }
 
+// Timeout sets a timeout for the request.
+func (r *Request) Timeout(duration time.Duration) *Request {
+	ctx, cancel := context.WithTimeout(r.request.Context(), duration)
+	r.cancelFunc = cancel
+	r.request = r.request.WithContext(ctx)
+	return r
+}
+
 // Send executes the HTTP request and returns the response.
-// For JSON requests, starts a goroutine that respects context cancellation.
 func (r *Request) Send() (*http.Response, error) {
+	if r.cancelFunc != nil {
+		defer r.cancelFunc()
+	}
 
 	switch r.body.dataType {
 	case JSONType:
@@ -100,7 +111,6 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 }
 
 // JSON sets the request body as JSON.
-// The data will be streamed during Send() with context cancellation support.
 func (r *Request) JSON(data any) *Request {
 	r.body = reqData{dataType: JSONType, data: data}
 	r.request.Header.Set(ContentType, ApplicationJSON)
