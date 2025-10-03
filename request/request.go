@@ -111,8 +111,8 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 }
 
 // JSON sets the request body as JSON.
-func (r *Request) JSON(data any) *Request {
-	r.data = reqData{dataType: JSONType, body: data}
+func (r *Request) JSON(body any) *Request {
+	r.data = reqData{dataType: JSONType, body: body}
 	r.request.Header.Set(ContentType, ApplicationJSON)
 	return r
 }
