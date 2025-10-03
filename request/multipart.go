@@ -25,14 +25,12 @@ type Multipart struct {
 
 // NewMultipart creates a new streaming multipart/form-data request builder.
 func NewMultipart(ctx context.Context, client *http.Client, method, url string) *Multipart {
-	r := &Multipart{
-		client: client,
-		data:   make([]formData, 0, 16),
+	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
+	return &Multipart{
+		client:  client,
+		request: request,
+		data:    make([]formData, 0, 16),
 	}
-
-	r.request, _ = http.NewRequestWithContext(ctx, method, url, nil)
-
-	return r
 }
 
 // Timeout sets a timeout for the request.

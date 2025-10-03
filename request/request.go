@@ -24,10 +24,10 @@ type Request struct {
 
 // NewRequest creates a new HTTP request builder.
 func NewRequest(ctx context.Context, client *http.Client, method, url string) *Request {
-	req, _ := http.NewRequestWithContext(ctx, method, url, nil)
+	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	return &Request{
 		client:  client,
-		request: req,
+		request: request,
 	}
 }
 
