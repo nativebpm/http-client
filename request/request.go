@@ -45,9 +45,9 @@ func (r *Request) Send() (*http.Response, error) {
 		defer r.cancelFunc()
 	}
 
-	switch r.body.dataType {
-	case JSONType:
-		if r.body.data != nil {
+	if r.body.data != nil {
+		switch r.body.dataType {
+		case JSONType:
 			pr, pw := io.Pipe()
 			r.request.Body = pr
 			ctx := r.request.Context()
