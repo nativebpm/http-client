@@ -597,104 +597,366 @@ func TestMultipart_ChainedCalls(t *testing.T) {
 }
 
 func TestMultipart_Timeout(t *testing.T) {
-// Create a slow server
-server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-time.Sleep(200 * time.Millisecond)
-w.WriteHeader(http.StatusOK)
-}))
-defer server.Close()
+	// Create a slow server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
-client := &http.Client{}
+	client := &http.Client{}
 
-// Test 1: Request should timeout
-ctx := context.Background()
-_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
-Param("field", "value").
-Timeout(50 * time.Millisecond).
-Send()
+	// Test 1: Request should timeout
+	ctx := context.Background()
+	_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		Param("field", "value").
+		Timeout(50 * time.Millisecond).
+		Send()
 
-if err == nil {
-t.Error("Expected timeout error, got nil")
-}
-if !strings.Contains(err.Error(), "context deadline exceeded") {
-t.Errorf("Expected context deadline exceeded error, got: %v", err)
-}
+	if err == nil {
+		t.Error("Expected timeout error, got nil")
+	}
+	if !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Errorf("Expected context deadline exceeded error, got: %v", err)
+	}
 
-// Test 2: Request should succeed with longer timeout
-resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
-Param("field", "value").
-Timeout(500 * time.Millisecond).
-Send()
+	// Test 2: Request should succeed with longer timeout
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		Param("field", "value").
+		Timeout(500 * time.Millisecond).
+		Send()
 
-if err != nil {
-t.Errorf("Unexpected error: %v", err)
-}
-if resp != nil {
-resp.Body.Close()
-if resp.StatusCode != http.StatusOK {
-t.Errorf("Expected status 200, got %d", resp.StatusCode)
-}
-}
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if resp != nil {
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", resp.StatusCode)
+		}
+	}
 }
 
 func TestMultipart_TimeoutChaining(t *testing.T) {
-server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.WriteHeader(http.StatusOK)
-}))
-defer server.Close()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
-client := &http.Client{}
-ctx := context.Background()
+	client := &http.Client{}
+	ctx := context.Background()
 
-// Test chaining Timeout with other methods
-resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
-Timeout(5 * time.Second).
-Header("X-Test", "value").
-Param("field", "value").
-File("file", "test.txt", strings.NewReader("content")).
-Send()
+	// Test chaining Timeout with other methods
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		Timeout(5*time.Second).
+		Header("X-Test", "value").
+		Param("field", "value").
+		File("file", "test.txt", strings.NewReader("content")).
+		Send()
 
-if err != nil {
-t.Errorf("Unexpected error: %v", err)
-}
-if resp != nil {
-resp.Body.Close()
-}
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if resp != nil {
+		resp.Body.Close()
+	}
 }
 
 func TestMultipart_TimeoutWithLargeFile(t *testing.T) {
-// Server that reads slowly
-server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// Read body slowly
-buf := make([]byte, 1024)
-for {
-_, err := r.Body.Read(buf)
-if err == io.EOF {
-break
-}
-if err != nil {
-return
-}
-time.Sleep(10 * time.Millisecond) // Slow read
-}
-w.WriteHeader(http.StatusOK)
-}))
-defer server.Close()
+	// Server that reads slowly
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Read body slowly
+		buf := make([]byte, 1024)
+		for {
+			_, err := r.Body.Read(buf)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return
+			}
+			time.Sleep(10 * time.Millisecond) // Slow read
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
-client := &http.Client{}
-ctx := context.Background()
+	client := &http.Client{}
+	ctx := context.Background()
 
-// Large file that should timeout during upload
-largeContent := bytes.Repeat([]byte("x"), 1024*100) // 100KB
-_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
-File("largefile", "large.dat", bytes.NewReader(largeContent)).
-Timeout(50 * time.Millisecond).
-Send()
+	// Large file that should timeout during upload
+	largeContent := bytes.Repeat([]byte("x"), 1024*100) // 100KB
+	_, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		File("largefile", "large.dat", bytes.NewReader(largeContent)).
+		Timeout(50 * time.Millisecond).
+		Send()
 
-if err == nil {
-t.Error("Expected timeout error for large file upload, got nil")
+	if err == nil {
+		t.Error("Expected timeout error for large file upload, got nil")
+	}
+	if !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Errorf("Expected context deadline exceeded error, got: %v", err)
+	}
 }
-if !strings.Contains(err.Error(), "context deadline exceeded") {
-t.Errorf("Expected context deadline exceeded error, got: %v", err)
+
+func TestMultipart_PathParam(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		params   map[string]string
+		expected string
+	}{
+		{
+			name:     "single_param",
+			url:      "/users/{id}/avatar",
+			params:   map[string]string{"id": "123"},
+			expected: "/users/123/avatar",
+		},
+		{
+			name:     "multiple_params",
+			url:      "/users/{userId}/files/{fileId}",
+			params:   map[string]string{"userId": "123", "fileId": "456"},
+			expected: "/users/123/files/456",
+		},
+		{
+			name:     "param_with_special_chars",
+			url:      "/projects/{name}/upload",
+			params:   map[string]string{"name": "my-project"},
+			expected: "/projects/my-project/upload",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var receivedPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedPath = r.URL.Path
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			client := &http.Client{}
+			ctx := context.Background()
+
+			mp := request.NewMultipart(ctx, client, http.MethodPost, server.URL+tt.url)
+			for key, value := range tt.params {
+				mp = mp.PathParam(key, value)
+			}
+
+			resp, err := mp.Param("field", "value").Send()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if receivedPath != tt.expected {
+				t.Errorf("expected path %s, got %s", tt.expected, receivedPath)
+			}
+		})
+	}
 }
+
+func TestMultipart_PathInt(t *testing.T) {
+	var receivedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := &http.Client{}
+	ctx := context.Background()
+
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{id}/files/{version}").
+		PathInt("id", 123).
+		PathInt("version", 2).
+		Param("name", "document").
+		Send()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	expected := "/users/123/files/2"
+	if receivedPath != expected {
+		t.Errorf("expected path %s, got %s", expected, receivedPath)
+	}
+}
+
+func TestMultipart_PathBool(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    bool
+		expected string
+	}{
+		{
+			name:     "true",
+			value:    true,
+			expected: "/api/public/true/upload",
+		},
+		{
+			name:     "false",
+			value:    false,
+			expected: "/api/public/false/upload",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var receivedPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedPath = r.URL.Path
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			client := &http.Client{}
+			ctx := context.Background()
+
+			resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/public/{visibility}/upload").
+				PathBool("visibility", tt.value).
+				Param("title", "File").
+				Send()
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if receivedPath != tt.expected {
+				t.Errorf("expected path %s, got %s", tt.expected, receivedPath)
+			}
+		})
+	}
+}
+
+func TestMultipart_PathFloat(t *testing.T) {
+	var receivedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := &http.Client{}
+	ctx := context.Background()
+
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL+"/products/{price}/image").
+		PathFloat("price", 99.95).
+		File("image", "product.jpg", strings.NewReader("image content")).
+		Send()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	expected := "/products/99.95/image"
+	if receivedPath != expected {
+		t.Errorf("expected path %s, got %s", expected, receivedPath)
+	}
+}
+
+func TestMultipart_PathParamWithFile(t *testing.T) {
+	var receivedPath string
+	receivedFiles := make(map[string][]byte)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+
+		contentType := r.Header.Get("Content-Type")
+		mediaType, params, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if mediaType != "multipart/form-data" {
+			http.Error(w, "invalid content type", http.StatusBadRequest)
+			return
+		}
+
+		mr := multipart.NewReader(r.Body, params["boundary"])
+		for {
+			p, err := mr.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			data, err := io.ReadAll(p)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			receivedFiles[p.FormName()] = data
+			p.Close()
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := &http.Client{}
+	ctx := context.Background()
+
+	fileContent := []byte("document content")
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{userId}/documents/{docType}").
+		PathParam("userId", "abc-123").
+		PathParam("docType", "invoice").
+		File("document", "invoice.pdf", bytes.NewReader(fileContent)).
+		Param("title", "Invoice 2025").
+		Send()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	expectedPath := "/users/abc-123/documents/invoice"
+	if receivedPath != expectedPath {
+		t.Errorf("expected path %s, got %s", expectedPath, receivedPath)
+	}
+
+	if !bytes.Equal(receivedFiles["document"], fileContent) {
+		t.Errorf("file content mismatch")
+	}
+}
+
+func TestMultipart_ComplexPathChaining(t *testing.T) {
+	var receivedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := &http.Client{}
+	ctx := context.Background()
+
+	resp, err := request.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/{version}/users/{id}/files/{fileId}").
+		PathParam("version", "v2").
+		Header("Authorization", "Bearer token").
+		PathInt("id", 456).
+		Param("description", "File upload").
+		PathParam("fileId", "xyz-789").
+		File("file", "document.pdf", strings.NewReader("content")).
+		Timeout(5 * time.Second).
+		Send()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	expectedPath := "/api/v2/users/456/files/xyz-789"
+	if receivedPath != expectedPath {
+		t.Errorf("expected path %s, got %s", expectedPath, receivedPath)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
 }

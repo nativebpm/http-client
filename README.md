@@ -6,10 +6,11 @@ Universal HTTP client for Go with fluent API, streaming support, and zero third-
 ## Features
   
 - **Fluent API** - method chaining for building requests
+- **Path Variables** - RESTful URL path parameters with `{placeholder}` syntax
 - **Streaming** - efficient memory usage with `io.Pipe` for large payloads
 - **Context-aware** - respects context cancellation to prevent goroutine leaks
 - **Multipart/form-data** - file uploads with streaming support
-- **Type-safe** - typed methods for query parameters (Bool, Int, Float)
+- **Type-safe** - typed methods for path and query parameters (Bool, Int, Float)
 - **Zero dependencies** - only Go standard library
 
 ## Installation
@@ -72,17 +73,29 @@ resp, err := client.GET(ctx, "/users").
     Bool("active", true).
     Send()
 
-// PUT with JSON
-resp, err := client.PUT(ctx, "/users/123").
+// GET with path parameters
+resp, err := client.GET(ctx, "/users/{id}/posts/{postId}").
+    PathParam("id", "123").
+    PathInt("postId", 456).
+    Send()
+
+// PUT with JSON and path parameters
+resp, err := client.PUT(ctx, "/users/{id}").
+    PathParam("id", "123").
     Header("Content-Type", "application/json").
     JSON(updatedUser).
     Send()
 
-// DELETE
-resp, err := client.DELETE(ctx, "/users/123").Send()
+// DELETE with path parameter
+resp, err := client.DELETE(ctx, "/users/{id}").
+    PathInt("id", 123).
+    Send()
 
-// Custom method
-resp, err := client.Request(ctx, "PATCH", "/users/123").
+// Custom method with path and query parameters
+resp, err := client.Request(ctx, "PATCH", "/api/{version}/users/{id}").
+    PathParam("version", "v1").
+    PathInt("id", 123).
+    Param("notify", "true").
     JSON(partialUpdate).
     Send()
 ```
@@ -99,8 +112,18 @@ resp, err := client.Multipart(ctx, "/upload").
     File("document", "document.pdf", file).
     Send()
 
-// PUT with custom method
-resp, err := client.MultipartWithMethod(ctx, "/upload", http.MethodPut).
+// POST with path parameters
+resp, err := client.Multipart(ctx, "/users/{userId}/documents/{docType}").
+    PathParam("userId", "abc-123").
+    PathParam("docType", "invoice").
+    Param("title", "Invoice 2025").
+    File("document", "invoice.pdf", file).
+    Send()
+
+// PUT with custom method and path parameters
+resp, err := client.MultipartWithMethod(ctx, "/api/{version}/files/{id}", http.MethodPut).
+    PathParam("version", "v2").
+    PathInt("id", 456).
     Param("title", "Updated File").
     Int("version", 2).
     File("document", "document.pdf", file).
@@ -172,6 +195,12 @@ MultipartWithMethod(ctx context.Context, path, method string) *Multipart
 // Headers
 Header(key, value string) *Request
 
+// Path parameters (replaces {key} in URL path)
+PathParam(key, value string) *Request
+PathInt(key string, value int) *Request
+PathBool(key string, value bool) *Request
+PathFloat(key string, value float64) *Request
+
 // Query parameters
 Param(key, value string) *Request
 Bool(key string, value bool) *Request
@@ -195,6 +224,12 @@ Send() (*http.Response, error)
 // Headers
 Header(key, value string) *Multipart
 
+// Path parameters (replaces {key} in URL path)
+PathParam(key, value string) *Multipart
+PathInt(key string, value int) *Multipart
+PathBool(key string, value bool) *Multipart
+PathFloat(key string, value float64) *Multipart
+
 // Form fields
 Param(key, value string) *Multipart
 Bool(key string, value bool) *Multipart
@@ -213,6 +248,56 @@ Send() (*http.Response, error)  // Streams data with context cancellation
 
 ## Key Features Explained
 
+### Path Variables
+
+Path variables allow you to dynamically replace placeholders in URL paths using the `{key}` syntax:
+
+```go
+// Simple path variable
+client.GET(ctx, "/users/{id}").
+    PathParam("id", "123").
+    Send()
+// Result: GET /users/123
+
+// Multiple path variables
+client.POST(ctx, "/api/{version}/users/{userId}/posts/{postId}").
+    PathParam("version", "v1").
+    PathInt("userId", 123).
+    PathInt("postId", 456).
+    Send()
+// Result: POST /api/v1/users/123/posts/456
+
+// Typed path parameters
+client.GET(ctx, "/products/{id}/available/{inStock}/price/{amount}").
+    PathInt("id", 42).
+    PathBool("inStock", true).
+    PathFloat("amount", 99.99).
+    Send()
+// Result: GET /products/42/available/true/price/99.99
+
+// Combining path and query parameters
+client.GET(ctx, "/users/{id}/posts").
+    PathInt("id", 123).
+    Param("page", "2").      // Query parameter
+    Int("limit", 10).        // Query parameter
+    Send()
+// Result: GET /users/123/posts?page=2&limit=10
+
+// Works with multipart uploads too
+client.Multipart(ctx, "/users/{userId}/files/{category}").
+    PathParam("userId", "abc-123").
+    PathParam("category", "documents").
+    File("document", "file.pdf", fileReader).
+    Send()
+// Result: POST /users/abc-123/files/documents
+```
+
+**Benefits:**
+- **Type-safe** - Use `PathInt`, `PathBool`, `PathFloat` for automatic conversion
+- **RESTful** - Natural support for REST API path structures
+- **Flexible** - Can be called in any order with other fluent methods
+- **Clear** - Explicit distinction between path and query parameters
+
 ### Streaming Support
 
 Both JSON and multipart requests use `io.Pipe` for efficient streaming:
@@ -229,14 +314,23 @@ All operations respect context cancellation:
 
 ### Type Safety
 
-Typed parameter methods prevent common mistakes:
+Typed methods prevent common mistakes for both path and query parameters:
 ```go
+// Query parameters
 client.GET(ctx, "/api").
-    Int("page", 1).      // Not Param("page", "1")
-    Bool("active", true). // Not Param("active", "true")
-    Float("price", 99.99). // Not Param("price", "99.99")
+    Int("page", 1).           // Not Param("page", "1")
+    Bool("active", true).     // Not Param("active", "true")
+    Float("price", 99.99).    // Not Param("price", "99.99")
     Timeout(5 * time.Second). // Type-safe timeout
     Send()
+
+// Path parameters
+client.GET(ctx, "/users/{id}/score/{score}").
+    PathInt("id", 123).       // Not PathParam("id", "123")
+    PathFloat("score", 95.5). // Not PathParam("score", "95.5")
+    Bool("verbose", true).    // Query parameter
+    Send()
+// Result: GET /users/123/score/95.5?verbose=true
 ```
 
 ## Testing

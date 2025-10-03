@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -78,6 +79,30 @@ func (r *Request) Send() (*http.Response, error) {
 func (r *Request) Header(key, value string) *Request {
 	r.request.Header.Set(key, value)
 	return r
+}
+
+// PathParam replaces a path variable placeholder in the URL.
+// Replaces {key} with the provided value.
+// Example: "/users/{id}" with PathParam("id", "123") becomes "/users/123"
+func (r *Request) PathParam(key, value string) *Request {
+	placeholder := "{" + key + "}"
+	r.request.URL.Path = strings.ReplaceAll(r.request.URL.Path, placeholder, value)
+	return r
+}
+
+// PathInt replaces a path variable placeholder with an integer value.
+func (r *Request) PathInt(key string, value int) *Request {
+	return r.PathParam(key, strconv.Itoa(value))
+}
+
+// PathBool replaces a path variable placeholder with a boolean value.
+func (r *Request) PathBool(key string, value bool) *Request {
+	return r.PathParam(key, strconv.FormatBool(value))
+}
+
+// PathFloat replaces a path variable placeholder with a float64 value.
+func (r *Request) PathFloat(key string, value float64) *Request {
+	return r.PathParam(key, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
 // Param adds a query parameter to the request.

@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -95,6 +96,30 @@ func (r *Multipart) Send() (*http.Response, error) {
 func (r *Multipart) Header(key, value string) *Multipart {
 	r.request.Header.Set(key, value)
 	return r
+}
+
+// PathParam replaces a path variable placeholder in the URL.
+// Replaces {key} with the provided value.
+// Example: "/users/{id}" with PathParam("id", "123") becomes "/users/123"
+func (r *Multipart) PathParam(key, value string) *Multipart {
+	placeholder := "{" + key + "}"
+	r.request.URL.Path = strings.ReplaceAll(r.request.URL.Path, placeholder, value)
+	return r
+}
+
+// PathInt replaces a path variable placeholder with an integer value.
+func (r *Multipart) PathInt(key string, value int) *Multipart {
+	return r.PathParam(key, strconv.Itoa(value))
+}
+
+// PathBool replaces a path variable placeholder with a boolean value.
+func (r *Multipart) PathBool(key string, value bool) *Multipart {
+	return r.PathParam(key, strconv.FormatBool(value))
+}
+
+// PathFloat replaces a path variable placeholder with a float64 value.
+func (r *Multipart) PathFloat(key string, value float64) *Multipart {
+	return r.PathParam(key, strconv.FormatFloat(value, 'f', -1, 64))
 }
 
 // Param adds a string field to the multipart form.
