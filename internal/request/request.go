@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -15,11 +16,13 @@ type dataType int
 const (
 	NoneType dataType = iota
 	jsonType
+	formType
 )
 
 type reqData struct {
 	dataType dataType
 	body     any
+	formData url.Values
 }
 
 // Request provides a builder for standard HTTP requests.
@@ -59,9 +62,9 @@ func (r *Request) Send() (*http.Response, error) {
 	tempClient := *r.client
 	tempClient.Transport = r.transportGetter()
 
-	if r.data.body != nil {
-		switch r.data.dataType {
-		case jsonType:
+	switch r.data.dataType {
+	case jsonType:
+		if r.data.body != nil {
 			pr, pw := io.Pipe()
 			r.request.Body = pr
 			ctx := r.request.Context()
@@ -82,6 +85,11 @@ func (r *Request) Send() (*http.Response, error) {
 					return
 				}
 			}()
+		}
+	case formType:
+		if r.data.formData != nil {
+			encoded := r.data.formData.Encode()
+			r.request.Body = io.NopCloser(strings.NewReader(encoded))
 		}
 	}
 
@@ -152,5 +160,15 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 func (r *Request) JSON(body any) *Request {
 	r.data = reqData{dataType: jsonType, body: body}
 	r.request.Header.Set("Content-Type", "application/json")
+	return r
+}
+
+// Form sets the request body as form data.
+func (r *Request) Form(key, value string) *Request {
+	if r.data.formData == nil {
+		r.data.formData = make(url.Values)
+	}
+	r.data.formData.Set(key, value)
+	r.request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return r
 }
