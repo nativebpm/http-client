@@ -11,6 +11,10 @@ import (
 	"github.com/nativebpm/http-client/internal/request"
 )
 
+// Public types re-exports
+type Multipart = formdata.Multipart
+type Request = request.Request
+
 // Client wraps http.Client and provides request builders for different HTTP methods.
 type Client struct {
 	baseURL *url.URL
