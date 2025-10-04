@@ -110,8 +110,18 @@ client.WithRateLimit(10, time.Minute/10)
 // Add logging
 client.WithLogging()
 
+// Add circuit breaker with default config
+client.WithCircuitBreaker()
+
+// Add circuit breaker with custom config
+client.WithCircuitBreakerConfig(httpclient.CircuitBreakerConfig{
+    FailureThreshold: 3,
+    SuccessThreshold: 1,
+    Timeout: 5 * time.Second,
+})
+
 // Chain them
-client.WithRetry().WithRateLimit(5, time.Second).WithLogging()
+client.WithRetry().WithRateLimit(5, time.Second).WithLogging().WithCircuitBreaker()
 ```
 
 ### Custom Middleware
@@ -143,6 +153,10 @@ client.Use(httpclient.RateLimitMiddleware(limiter))
 
 // Logging
 client.Use(httpclient.LoggingMiddleware())
+
+// Circuit breaker
+cb := httpclient.NewCircuitBreaker(httpclient.DefaultCircuitBreakerConfig())
+client.Use(httpclient.CircuitBreakerMiddleware(cb))
 ```
 
 See `examples/` for complete working examples.

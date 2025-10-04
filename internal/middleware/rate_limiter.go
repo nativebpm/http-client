@@ -59,10 +59,3 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.RoundTripper) http.Roun
 		})
 	}
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

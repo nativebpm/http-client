@@ -134,3 +134,15 @@ func (c *Client) WithRateLimit(capacity int, refillRate time.Duration) *Client {
 func (c *Client) WithLogging() *Client {
 	return c.Use(LoggingMiddleware())
 }
+
+// WithCircuitBreaker adds circuit breaker middleware with default config
+func (c *Client) WithCircuitBreaker() *Client {
+	cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
+	return c.Use(CircuitBreakerMiddleware(cb))
+}
+
+// WithCircuitBreakerConfig adds circuit breaker middleware with custom config
+func (c *Client) WithCircuitBreakerConfig(config CircuitBreakerConfig) *Client {
+	cb := NewCircuitBreaker(config)
+	return c.Use(CircuitBreakerMiddleware(cb))
+}
