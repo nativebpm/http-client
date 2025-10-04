@@ -27,7 +27,7 @@ func BenchmarkMultipart_Simple(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Param("name", "John Doe").
 			Param("email", "john@example.com").
 			Send()
@@ -53,7 +53,7 @@ func BenchmarkMultipart_ManyParams(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL)
+		mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport })
 		for j := 0; j < 20; j++ {
 			mp.Param("key", "value")
 		}
@@ -80,7 +80,7 @@ func BenchmarkMultipart_TypedFields(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Param("name", "Product").
 			Int("quantity", 42).
 			Float("price", 19.99).
@@ -109,7 +109,7 @@ func BenchmarkMultipart_SingleFile(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			File("document", "test.txt", bytes.NewReader(fileContent)).
 			Send()
 		if err != nil {
@@ -135,7 +135,7 @@ func BenchmarkMultipart_SmallFile(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			File("document", "small.txt", bytes.NewReader(fileContent)).
 			Send()
 		if err != nil {
@@ -161,7 +161,7 @@ func BenchmarkMultipart_LargeFile(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			File("document", "large.dat", bytes.NewReader(fileContent)).
 			Send()
 		if err != nil {
@@ -189,7 +189,7 @@ func BenchmarkMultipart_MultipleFiles(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			File("file1", "doc1.txt", bytes.NewReader(file1)).
 			File("file2", "doc2.txt", bytes.NewReader(file2)).
 			File("file3", "doc3.txt", bytes.NewReader(file3)).
@@ -217,7 +217,7 @@ func BenchmarkMultipart_MixedParamsAndFiles(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Param("title", "Document").
 			Param("author", "Jane Doe").
 			Int("version", 2).
@@ -247,7 +247,7 @@ func BenchmarkMultipart_WithHeaders(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Header("X-API-Key", "secret-token").
 			Header("X-Request-ID", "req-123").
 			Param("data", "value").
@@ -275,7 +275,7 @@ func BenchmarkMultipart_ChainedCalls(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Header("Authorization", "Bearer token").
 			Param("param1", "value1").
 			Param("param2", "value2").
@@ -332,7 +332,7 @@ func BenchmarkMultipart_ServerParsing(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+		resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Param("field1", "value1").
 			Param("field2", "value2").
 			File("file", "data.bin", bytes.NewReader(fileContent)).
@@ -362,7 +362,7 @@ func BenchmarkMultipart_Parallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		ctx := context.Background()
 		for pb.Next() {
-			resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+			resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 				Param("name", "test").
 				File("document", "file.dat", bytes.NewReader(fileContent)).
 				Send()

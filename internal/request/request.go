@@ -24,18 +24,20 @@ type reqData struct {
 
 // Request provides a builder for standard HTTP requests.
 type Request struct {
-	client     *http.Client
-	request    *http.Request
-	data       reqData
-	cancelFunc context.CancelFunc
+	client          *http.Client
+	request         *http.Request
+	data            reqData
+	cancelFunc      context.CancelFunc
+	transportGetter func() http.RoundTripper
 }
 
 // NewRequest creates a new HTTP request builder.
-func NewRequest(ctx context.Context, client *http.Client, method, url string) *Request {
+func NewRequest(ctx context.Context, client *http.Client, method, url string, transportGetter func() http.RoundTripper) *Request {
 	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	return &Request{
-		client:  client,
-		request: request,
+		client:          client,
+		request:         request,
+		transportGetter: transportGetter,
 	}
 }
 
@@ -52,6 +54,10 @@ func (r *Request) Send() (*http.Response, error) {
 	if r.cancelFunc != nil {
 		defer r.cancelFunc()
 	}
+
+	// Create a temporary client with the effective transport
+	tempClient := *r.client
+	tempClient.Transport = r.transportGetter()
 
 	if r.data.body != nil {
 		switch r.data.dataType {
@@ -79,7 +85,7 @@ func (r *Request) Send() (*http.Response, error) {
 		}
 	}
 
-	return r.client.Do(r.request)
+	return tempClient.Do(r.request)
 }
 
 // Header sets an HTTP header on the request.

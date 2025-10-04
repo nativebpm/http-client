@@ -19,7 +19,7 @@ func TestNewMultipart(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	mp := formdata.NewMultipart(ctx, client, http.MethodPost, "http://example.com/upload")
+	mp := formdata.NewMultipart(ctx, client, http.MethodPost, "http://example.com/upload", func() http.RoundTripper { return http.DefaultTransport })
 	if mp == nil {
 		t.Fatal("NewMultipart returned nil")
 	}
@@ -69,7 +69,7 @@ func TestMultipart_Param(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Param("name", "John Doe").
 		Param("email", "john@example.com").
 		Send()
@@ -168,7 +168,7 @@ func TestMultipart_TypedFields(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL)
+			mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport })
 			resp, err := tt.setup(mp).Send()
 
 			if err != nil {
@@ -230,7 +230,7 @@ func TestMultipart_File(t *testing.T) {
 	ctx := context.Background()
 
 	fileContent := []byte("Hello, World!")
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		File("document", "test.txt", bytes.NewReader(fileContent)).
 		Send()
 
@@ -296,7 +296,7 @@ func TestMultipart_MixedParamsAndFiles(t *testing.T) {
 	ctx := context.Background()
 
 	fileContent := []byte("PDF content here")
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Param("title", "My Document").
 		Int("version", 2).
 		Bool("published", true).
@@ -342,7 +342,7 @@ func TestMultipart_Header(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Header("X-API-Key", "secret-token-123").
 		Param("data", "value").
 		Send()
@@ -399,7 +399,7 @@ func TestMultipart_LargeFile(t *testing.T) {
 
 	// Create a 1MB file content
 	largeContent := bytes.Repeat([]byte("x"), 1024*1024)
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		File("largefile", "large.dat", bytes.NewReader(largeContent)).
 		Send()
 
@@ -432,7 +432,7 @@ func TestMultipart_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Param("data", "value").
 		Send()
 
@@ -490,7 +490,7 @@ func TestMultipart_MultipleFiles(t *testing.T) {
 	file2 := []byte("content2")
 	file3 := []byte("content3")
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		File("file", "doc1.txt", bytes.NewReader(file1)).
 		File("file", "doc2.txt", bytes.NewReader(file2)).
 		File("attachment", "doc3.txt", bytes.NewReader(file3)).
@@ -550,7 +550,7 @@ func TestMultipart_EmptyForm(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).Send()
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).Send()
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -576,7 +576,7 @@ func TestMultipart_ChainedCalls(t *testing.T) {
 	ctx := context.Background()
 
 	// Test that all methods return *Multipart for chaining
-	mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Header("X-Custom", "value").
 		Param("key1", "value1").
 		Bool("flag", true).
@@ -608,7 +608,7 @@ func TestMultipart_Timeout(t *testing.T) {
 
 	// Test 1: Request should timeout
 	ctx := context.Background()
-	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Param("field", "value").
 		Timeout(50 * time.Millisecond).
 		Send()
@@ -621,7 +621,7 @@ func TestMultipart_Timeout(t *testing.T) {
 	}
 
 	// Test 2: Request should succeed with longer timeout
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Param("field", "value").
 		Timeout(500 * time.Millisecond).
 		Send()
@@ -647,7 +647,7 @@ func TestMultipart_TimeoutChaining(t *testing.T) {
 	ctx := context.Background()
 
 	// Test chaining Timeout with other methods
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Timeout(5*time.Second).
 		Header("X-Test", "value").
 		Param("field", "value").
@@ -686,7 +686,7 @@ func TestMultipart_TimeoutWithLargeFile(t *testing.T) {
 
 	// Large file that should timeout during upload
 	largeContent := bytes.Repeat([]byte("x"), 1024*100) // 100KB
-	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL).
+	_, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		File("largefile", "large.dat", bytes.NewReader(largeContent)).
 		Timeout(50 * time.Millisecond).
 		Send()
@@ -738,7 +738,7 @@ func TestMultipart_PathParam(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+tt.url)
+			mp := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+tt.url, func() http.RoundTripper { return http.DefaultTransport })
 			for key, value := range tt.params {
 				mp = mp.PathParam(key, value)
 			}
@@ -767,7 +767,7 @@ func TestMultipart_PathInt(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{id}/files/{version}").
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{id}/files/{version}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathInt("id", 123).
 		PathInt("version", 2).
 		Param("name", "document").
@@ -814,7 +814,7 @@ func TestMultipart_PathBool(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/public/{visibility}/upload").
+			resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/public/{visibility}/upload", func() http.RoundTripper { return http.DefaultTransport }).
 				PathBool("visibility", tt.value).
 				Param("title", "File").
 				Send()
@@ -842,7 +842,7 @@ func TestMultipart_PathFloat(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/products/{price}/image").
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/products/{price}/image", func() http.RoundTripper { return http.DefaultTransport }).
 		PathFloat("price", 99.95).
 		File("image", "product.jpg", strings.NewReader("image content")).
 		Send()
@@ -903,7 +903,7 @@ func TestMultipart_PathParamWithFile(t *testing.T) {
 	ctx := context.Background()
 
 	fileContent := []byte("document content")
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{userId}/documents/{docType}").
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/users/{userId}/documents/{docType}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathParam("userId", "abc-123").
 		PathParam("docType", "invoice").
 		File("document", "invoice.pdf", bytes.NewReader(fileContent)).
@@ -936,7 +936,7 @@ func TestMultipart_ComplexPathChaining(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/{version}/users/{id}/files/{fileId}").
+	resp, err := formdata.NewMultipart(ctx, client, http.MethodPost, server.URL+"/api/{version}/users/{id}/files/{fileId}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathParam("version", "v2").
 		Header("Authorization", "Bearer token").
 		PathInt("id", 456).

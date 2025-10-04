@@ -26,19 +26,21 @@ type formData struct {
 
 // Multipart provides a streaming multipart/form-data builder for HTTP requests.
 type Multipart struct {
-	client     *http.Client
-	request    *http.Request
-	data       []formData
-	cancelFunc context.CancelFunc
+	client          *http.Client
+	request         *http.Request
+	data            []formData
+	cancelFunc      context.CancelFunc
+	transportGetter func() http.RoundTripper
 }
 
 // NewMultipart creates a new streaming multipart/form-data request builder.
-func NewMultipart(ctx context.Context, client *http.Client, method, url string) *Multipart {
+func NewMultipart(ctx context.Context, client *http.Client, method, url string, transportGetter func() http.RoundTripper) *Multipart {
 	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	return &Multipart{
-		client:  client,
-		request: request,
-		data:    make([]formData, 0, 16),
+		client:          client,
+		request:         request,
+		data:            make([]formData, 0, 16),
+		transportGetter: transportGetter,
 	}
 }
 
@@ -55,6 +57,10 @@ func (r *Multipart) Send() (*http.Response, error) {
 	if r.cancelFunc != nil {
 		defer r.cancelFunc()
 	}
+
+	// Create a temporary client with the effective transport
+	tempClient := *r.client
+	tempClient.Transport = r.transportGetter()
 
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
@@ -97,7 +103,7 @@ func (r *Multipart) Send() (*http.Response, error) {
 		}
 	}()
 
-	return r.client.Do(r.request)
+	return tempClient.Do(r.request)
 }
 
 // Header sets an HTTP header on the request.

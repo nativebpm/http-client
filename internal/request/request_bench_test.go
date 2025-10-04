@@ -23,7 +23,7 @@ func BenchmarkRequest_Simple(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).
+		resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Header("X-API-Key", "secret").
 			Param("page", "1").
 			Send()
@@ -47,7 +47,7 @@ func BenchmarkRequest_ManyParams(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		req := request.NewRequest(ctx, client, http.MethodGet, server.URL)
+		req := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport })
 		for j := 0; j < 10; j++ {
 			req.Param("param", "value")
 		}
@@ -78,7 +78,7 @@ func BenchmarkRequest_JSON(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			JSON(data).
 			Send()
 		if err != nil {
@@ -101,7 +101,7 @@ func BenchmarkRequest_WithTimeout(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).
+		resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Timeout(5 * time.Second).
 			Send()
 		if err != nil {
@@ -130,7 +130,7 @@ func BenchmarkRequest_JSONWithTimeout(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Timeout(10 * time.Second).
 			JSON(data).
 			Send()
@@ -156,7 +156,7 @@ func BenchmarkRequest_ComplexChainWithTimeout(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+		resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 			Header("X-API-Key", "secret").
 			Header("User-Agent", "test-client").
 			Timeout(5*time.Second).

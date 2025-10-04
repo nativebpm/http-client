@@ -17,8 +17,10 @@ type Request = request.Request
 
 // Client wraps http.Client and provides request builders for different HTTP methods.
 type Client struct {
-	baseURL *url.URL
-	client  *http.Client
+	baseURL     *url.URL
+	client      *http.Client
+	middlewares []func(http.RoundTripper) http.RoundTripper
+	transport   http.RoundTripper // cached transport with applied middlewares
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -35,23 +37,55 @@ func NewClient(client *http.Client, baseURL string) (*Client, error) {
 	}, nil
 }
 
+// Use adds a middleware to the client. Middlewares are applied in the order they are added.
+// Each middleware is a function that takes a RoundTripper and returns a wrapped RoundTripper.
+func (c *Client) Use(middleware func(http.RoundTripper) http.RoundTripper) *Client {
+	c.middlewares = append(c.middlewares, middleware)
+	c.transport = nil // invalidate cache
+	return c
+}
+
+// SetTransport sets a custom base RoundTripper. This will be wrapped by middlewares.
+func (c *Client) SetTransport(rt http.RoundTripper) *Client {
+	c.client.Transport = rt
+	c.transport = nil // invalidate cache
+	return c
+}
+
+// getTransport returns the effective RoundTripper with middlewares applied.
+// It caches the result to avoid recomputation.
+func (c *Client) getTransport() http.RoundTripper {
+	if c.transport != nil {
+		return c.transport
+	}
+	base := c.client.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	for _, m := range c.middlewares {
+		base = m(base)
+	}
+	c.transport = base
+	return base
+}
+
 func (c *Client) url(path string) string {
 	return c.baseURL.JoinPath(path).String()
 }
 
 // Multipart creates a multipart/form-data POST request builder.
 func (c *Client) Multipart(ctx context.Context, path string) *formdata.Multipart {
-	return formdata.NewMultipart(ctx, c.client, http.MethodPost, c.url(path))
+	return formdata.NewMultipart(ctx, c.client, http.MethodPost, c.url(path), c.getTransport)
 }
 
 // MultipartWithMethod creates a multipart/form-data request builder with HTTP method.
 func (c *Client) MultipartWithMethod(ctx context.Context, path, method string) *formdata.Multipart {
-	return formdata.NewMultipart(ctx, c.client, method, c.url(path))
+	return formdata.NewMultipart(ctx, c.client, method, c.url(path), c.getTransport)
 }
 
 // Request creates a standard HTTP request builder.
 func (c *Client) Request(ctx context.Context, method, path string) *request.Request {
-	return request.NewRequest(ctx, c.client, method, c.url(path))
+	return request.NewRequest(ctx, c.client, method, c.url(path), c.getTransport)
 }
 
 // GET creates a GET request builder.

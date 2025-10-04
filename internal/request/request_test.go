@@ -17,7 +17,7 @@ func TestNewRequest(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	req := request.NewRequest(ctx, client, http.MethodGet, "http://example.com/api")
+	req := request.NewRequest(ctx, client, http.MethodGet, "http://example.com/api", func() http.RoundTripper { return http.DefaultTransport })
 	if req == nil {
 		t.Fatal("NewRequest returned nil")
 	}
@@ -74,7 +74,7 @@ func TestRequest_PathParam(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			req := request.NewRequest(ctx, client, http.MethodGet, server.URL+tt.url)
+			req := request.NewRequest(ctx, client, http.MethodGet, server.URL+tt.url, func() http.RoundTripper { return http.DefaultTransport })
 			for key, value := range tt.params {
 				req = req.PathParam(key, value)
 			}
@@ -103,7 +103,7 @@ func TestRequest_PathInt(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/users/{id}/score/{score}").
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/users/{id}/score/{score}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathInt("id", 123).
 		PathInt("score", 95).
 		Send()
@@ -149,7 +149,7 @@ func TestRequest_PathBool(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api/active/{status}").
+			resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api/active/{status}", func() http.RoundTripper { return http.DefaultTransport }).
 				PathBool("status", tt.value).
 				Send()
 
@@ -176,7 +176,7 @@ func TestRequest_PathFloat(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/products/{price}").
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/products/{price}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathFloat("price", 19.99).
 		Send()
 
@@ -204,7 +204,7 @@ func TestRequest_PathParamWithQueryParams(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/users/{id}/posts").
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/users/{id}/posts", func() http.RoundTripper { return http.DefaultTransport }).
 		PathParam("id", "123").
 		Param("page", "2").
 		Param("limit", "10").
@@ -238,7 +238,7 @@ func TestRequest_PathParamChaining(t *testing.T) {
 	ctx := context.Background()
 
 	// Test that all methods return *Request for chaining
-	req := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api/{version}/users/{id}").
+	req := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api/{version}/users/{id}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathParam("version", "v1").
 		Header("X-Custom", "value").
 		PathInt("id", 123).
@@ -267,7 +267,7 @@ func TestRequest_Param(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api").
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api", func() http.RoundTripper { return http.DefaultTransport }).
 		Param("key1", "value1").
 		Param("key2", "value2").
 		Send()
@@ -333,7 +333,7 @@ func TestRequest_TypedParams(t *testing.T) {
 			client := &http.Client{}
 			ctx := context.Background()
 
-			req := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api")
+			req := request.NewRequest(ctx, client, http.MethodGet, server.URL+"/api", func() http.RoundTripper { return http.DefaultTransport })
 			resp, err := tt.setup(req).Send()
 
 			if err != nil {
@@ -362,7 +362,7 @@ func TestRequest_Header(t *testing.T) {
 	client := &http.Client{}
 	ctx := context.Background()
 
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Header("X-API-Key", "secret-token-123").
 		Send()
 
@@ -403,7 +403,7 @@ func TestRequest_JSON(t *testing.T) {
 	ctx := context.Background()
 
 	user := User{Name: "John Doe", Email: "john@example.com"}
-	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		JSON(user).
 		Send()
 
@@ -444,7 +444,7 @@ func TestRequest_Body(t *testing.T) {
 	ctx := context.Background()
 
 	bodyContent := "custom body content"
-	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Body(io.NopCloser(strings.NewReader(bodyContent)), "text/plain").
 		Send()
 
@@ -477,7 +477,7 @@ func TestRequest_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).Send()
+	_, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).Send()
 
 	if err == nil {
 		t.Fatal("expected context cancellation error, got nil")
@@ -500,7 +500,7 @@ func TestRequest_Timeout(t *testing.T) {
 
 	// Test 1: Request should timeout
 	ctx := context.Background()
-	_, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).
+	_, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Timeout(50 * time.Millisecond).
 		Send()
 
@@ -512,7 +512,7 @@ func TestRequest_Timeout(t *testing.T) {
 	}
 
 	// Test 2: Request should succeed with longer timeout
-	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL).
+	resp, err := request.NewRequest(ctx, client, http.MethodGet, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		Timeout(500 * time.Millisecond).
 		Send()
 
@@ -540,7 +540,7 @@ func TestRequest_JSONWithTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	data := map[string]string{"key": "value"}
-	_, err := request.NewRequest(ctx, client, http.MethodPost, server.URL).
+	_, err := request.NewRequest(ctx, client, http.MethodPost, server.URL, func() http.RoundTripper { return http.DefaultTransport }).
 		JSON(data).
 		Timeout(50 * time.Millisecond).
 		Send()
@@ -585,7 +585,7 @@ func TestRequest_ComplexChaining(t *testing.T) {
 	ctx := context.Background()
 
 	data := RequestData{Name: "Product", Price: 99.99, Active: true}
-	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL+"/api/{version}/products/{id}").
+	resp, err := request.NewRequest(ctx, client, http.MethodPost, server.URL+"/api/{version}/products/{id}", func() http.RoundTripper { return http.DefaultTransport }).
 		PathParam("version", "v1").
 		PathInt("id", 123).
 		Header("Authorization", "Bearer token123").
