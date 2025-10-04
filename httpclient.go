@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/nativebpm/http-client/internal/formdata"
 	"github.com/nativebpm/http-client/internal/request"
@@ -73,19 +74,19 @@ func (c *Client) url(path string) string {
 	return c.baseURL.JoinPath(path).String()
 }
 
-// Multipart creates a multipart/form-data POST request builder.
-func (c *Client) Multipart(ctx context.Context, path string) *formdata.Multipart {
-	return formdata.NewMultipart(ctx, c.client, http.MethodPost, c.url(path), c.getTransport)
-}
-
-// MultipartWithMethod creates a multipart/form-data request builder with HTTP method.
-func (c *Client) MultipartWithMethod(ctx context.Context, path, method string) *formdata.Multipart {
-	return formdata.NewMultipart(ctx, c.client, method, c.url(path), c.getTransport)
-}
-
 // Request creates a standard HTTP request builder.
 func (c *Client) Request(ctx context.Context, method, path string) *request.Request {
 	return request.NewRequest(ctx, c.client, method, c.url(path), c.getTransport)
+}
+
+// MultipartRequest creates a multipart/form-data request builder with HTTP method.
+func (c *Client) MultipartRequest(ctx context.Context, path, method string) *formdata.Multipart {
+	return formdata.NewMultipart(ctx, c.client, method, c.url(path), c.getTransport)
+}
+
+// Multipart creates a multipart/form-data POST request builder.
+func (c *Client) Multipart(ctx context.Context, path string) *formdata.Multipart {
+	return formdata.NewMultipart(ctx, c.client, http.MethodPost, c.url(path), c.getTransport)
 }
 
 // GET creates a GET request builder.
@@ -111,4 +112,25 @@ func (c *Client) PATCH(ctx context.Context, path string) *request.Request {
 // DELETE creates a DELETE request builder.
 func (c *Client) DELETE(ctx context.Context, path string) *request.Request {
 	return c.Request(ctx, http.MethodDelete, path)
+}
+
+// WithRetry adds retry middleware with default config
+func (c *Client) WithRetry() *Client {
+	return c.Use(RetryMiddleware(DefaultRetryConfig()))
+}
+
+// WithRetryConfig adds retry middleware with custom config
+func (c *Client) WithRetryConfig(config RetryConfig) *Client {
+	return c.Use(RetryMiddleware(config))
+}
+
+// WithRateLimit adds rate limiting middleware
+func (c *Client) WithRateLimit(capacity int, refillRate time.Duration) *Client {
+	limiter := NewSimpleRateLimiter(capacity, refillRate)
+	return c.Use(RateLimitMiddleware(limiter))
+}
+
+// WithLogging adds logging middleware
+func (c *Client) WithLogging() *Client {
+	return c.Use(LoggingMiddleware())
 }

@@ -28,7 +28,7 @@ func TestClientMethods(t *testing.T) {
 
 	// Test multipart methods
 	_ = client.Multipart(ctx, "/test")
-	_ = client.MultipartWithMethod(ctx, "/test", http.MethodPut)
+	_ = client.MultipartRequest(ctx, "/test", http.MethodPut)
 
 	// Test request methods
 	_ = client.Request(ctx, http.MethodGet, "/test")
@@ -48,7 +48,7 @@ func BenchmarkClientMethods(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = client.Multipart(ctx, "/test")
-		_ = client.MultipartWithMethod(ctx, "/test", http.MethodPut)
+		_ = client.MultipartRequest(ctx, "/test", http.MethodPut)
 		_ = client.GET(ctx, "/test")
 		_ = client.POST(ctx, "/test")
 		_ = client.PUT(ctx, "/test")

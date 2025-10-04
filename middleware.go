@@ -1,0 +1,41 @@
+package httpclient
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/nativebpm/http-client/internal/middleware"
+)
+
+// Re-export middleware types and functions for public API
+
+// RetryConfig holds configuration for retry middleware
+type RetryConfig = middleware.RetryConfig
+
+// RateLimiter implements a basic token bucket rate limiter
+type RateLimiter = middleware.RateLimiter
+
+// DefaultRetryConfig returns a default retry configuration
+func DefaultRetryConfig() RetryConfig {
+	return middleware.DefaultRetryConfig()
+}
+
+// RetryMiddleware returns a middleware that retries requests based on the config
+func RetryMiddleware(config RetryConfig) func(http.RoundTripper) http.RoundTripper {
+	return middleware.RetryMiddleware(config)
+}
+
+// NewSimpleRateLimiter creates a new rate limiter
+func NewSimpleRateLimiter(capacity int, refillRate time.Duration) *RateLimiter {
+	return middleware.NewRateLimiter(capacity, refillRate)
+}
+
+// RateLimitMiddleware returns a middleware that enforces rate limiting
+func RateLimitMiddleware(limiter *RateLimiter) func(http.RoundTripper) http.RoundTripper {
+	return middleware.RateLimitMiddleware(limiter)
+}
+
+// LoggingMiddleware returns a middleware that logs requests and responses
+func LoggingMiddleware() func(http.RoundTripper) http.RoundTripper {
+	return middleware.LoggingMiddleware()
+}

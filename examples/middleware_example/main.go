@@ -18,28 +18,16 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func main() {
-	// Create a new HTTP client
+	// Create a new HTTP client with built-in middleware
 	client, err := httpclient.NewClient(&http.Client{Timeout: 10 * time.Second}, "https://httpbin.org")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Add logging middleware
-	client.Use(func(next http.RoundTripper) http.RoundTripper {
-		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			fmt.Printf("Sending request: %s %s\n", req.Method, req.URL)
-			start := time.Now()
-			resp, err := next.RoundTrip(req)
-			if err != nil {
-				fmt.Printf("Request failed: %v\n", err)
-				return nil, err
-			}
-			fmt.Printf("Response received: %d in %v\n", resp.StatusCode, time.Since(start))
-			return resp, nil
-		})
-	})
+	// Use fluent builder methods for common middleware
+	client.WithRetry().WithRateLimit(5, time.Second).WithLogging()
 
-	// Add authorization header middleware
+	// Add custom authorization header middleware
 	client.Use(func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Authorization", "Bearer example-token")

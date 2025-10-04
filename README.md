@@ -1,4 +1,3 @@
-
 # http-client
 
 Fluent HTTP client for Go with streaming support and zero dependencies.
@@ -11,6 +10,7 @@ Fluent HTTP client for Go with streaming support and zero dependencies.
 - Context-aware with proper cancellation handling
 - Multipart/form-data file uploads
 - Type-safe methods for parameters
+- Built-in middleware for retry, rate limiting, and logging
 - Zero third-party dependencies
 
 ## Installation
@@ -82,7 +82,74 @@ Same as Request, plus:
 File(key, filename string, content io.Reader) // Add file
 ```
 
+## Middleware
+
+The client supports middleware for intercepting and modifying requests/responses. Middleware are functions that wrap `http.RoundTripper`.
+
+### Fluent Builder Methods
+
+For convenience, the client provides fluent methods for common middleware:
+
+```go
+client, _ := httpclient.NewClient(&http.Client{}, "https://api.example.com")
+
+// Add retry with default config
+client.WithRetry()
+
+// Add retry with custom config
+client.WithRetryConfig(httpclient.RetryConfig{
+    MaxRetries: 5,
+    Backoff: func(attempt int) time.Duration {
+        return time.Duration(attempt*2) * time.Second
+    },
+})
+
+// Add rate limiting (10 requests per minute)
+client.WithRateLimit(10, time.Minute/10)
+
+// Add logging
+client.WithLogging()
+
+// Chain them
+client.WithRetry().WithRateLimit(5, time.Second).WithLogging()
+```
+
+### Custom Middleware
+
+```go
+client.Use(func(next http.RoundTripper) http.RoundTripper {
+    return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        // Pre-request logic
+        resp, err := next.RoundTrip(req)
+        // Post-response logic
+        return resp, err
+    })
+})
+```
+
+### Built-in Middleware Functions
+
+You can also use the middleware functions directly:
+
+```go
+import "github.com/nativebpm/http-client"
+
+// Retry
+client.Use(httpclient.RetryMiddleware(httpclient.DefaultRetryConfig()))
+
+// Rate limiting
+limiter := httpclient.NewSimpleRateLimiter(10, time.Minute/10)
+client.Use(httpclient.RateLimitMiddleware(limiter))
+
+// Logging
+client.Use(httpclient.LoggingMiddleware())
+```
+
+See `examples/` for complete working examples.
+
 ## Examples
+
+See the `examples/` directory for complete working examples, including middleware usage.
 
 ### Path Variables
 
