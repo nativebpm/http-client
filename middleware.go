@@ -63,3 +63,36 @@ func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 func CircuitBreakerMiddleware(cb *CircuitBreaker) func(http.RoundTripper) http.RoundTripper {
 	return middleware.CircuitBreakerMiddleware(cb)
 }
+
+// WithRetry adds retry middleware with default config
+func (c *Client) WithRetry() *Client {
+	return c.Use(RetryMiddleware(DefaultRetryConfig()))
+}
+
+// WithRetryConfig adds retry middleware with custom config
+func (c *Client) WithRetryConfig(config RetryConfig) *Client {
+	return c.Use(RetryMiddleware(config))
+}
+
+// WithRateLimit adds rate limiting middleware
+func (c *Client) WithRateLimit(capacity int, refillRate time.Duration) *Client {
+	limiter := NewSimpleRateLimiter(capacity, refillRate)
+	return c.Use(RateLimitMiddleware(limiter))
+}
+
+// WithLogging adds logging middleware
+func (c *Client) WithLogging() *Client {
+	return c.Use(LoggingMiddleware())
+}
+
+// WithCircuitBreaker adds circuit breaker middleware with default config
+func (c *Client) WithCircuitBreaker() *Client {
+	cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
+	return c.Use(CircuitBreakerMiddleware(cb))
+}
+
+// WithCircuitBreakerConfig adds circuit breaker middleware with custom config
+func (c *Client) WithCircuitBreakerConfig(config CircuitBreakerConfig) *Client {
+	cb := NewCircuitBreaker(config)
+	return c.Use(CircuitBreakerMiddleware(cb))
+}
