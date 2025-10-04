@@ -138,6 +138,10 @@ defer cancel()
 client.POST(ctx, "/slow").JSON(data).Send()
 ```
 
+### Use Cases
+
+- [Gotenberg Client](https://github.com/nativebpm/gotenberg-client) - A Go client for Gotenberg PDF generation service using this [http-client](https://github.com/nativebpm/http-client).
+
 ## Testing
 
 ```bash
