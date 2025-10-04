@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nativebpm/http-client/request"
+	"github.com/nativebpm/http-client/internal/request"
 )
 
 func TestNewRequest(t *testing.T) {

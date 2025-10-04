@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-type DataType int
+type dataType int
 
 const (
-	NoneType DataType = iota
-	JSONType
+	NoneType dataType = iota
+	jsonType
 )
 
 type reqData struct {
-	dataType DataType
+	dataType dataType
 	body     any
 }
 
@@ -55,7 +55,7 @@ func (r *Request) Send() (*http.Response, error) {
 
 	if r.data.body != nil {
 		switch r.data.dataType {
-		case JSONType:
+		case jsonType:
 			pr, pw := io.Pipe()
 			r.request.Body = pr
 			ctx := r.request.Context()
@@ -144,7 +144,7 @@ func (r *Request) Body(body io.ReadCloser, contentType string) *Request {
 
 // JSON sets the request body as JSON.
 func (r *Request) JSON(body any) *Request {
-	r.data = reqData{dataType: JSONType, body: body}
+	r.data = reqData{dataType: jsonType, body: body}
 	r.request.Header.Set("Content-Type", "application/json")
 	return r
 }

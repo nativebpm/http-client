@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/nativebpm/http-client/formdata"
+	"github.com/nativebpm/http-client/internal/formdata"
 )
 
 func BenchmarkMultipart_Simple(b *testing.B) {

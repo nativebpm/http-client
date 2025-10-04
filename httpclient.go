@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/nativebpm/http-client/formdata"
-	"github.com/nativebpm/http-client/request"
+	"github.com/nativebpm/http-client/internal/formdata"
+	"github.com/nativebpm/http-client/internal/request"
 )
 
 // Client wraps http.Client and provides request builders for different HTTP methods.

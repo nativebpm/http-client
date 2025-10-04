@@ -10,16 +10,16 @@ import (
 	"time"
 )
 
-type DataType int
+type dataType int
 
 const (
-	NoneType DataType = iota
-	ParamType
-	FileType
+	noneType dataType = iota
+	paramType
+	fileType
 )
 
 type formData struct {
-	dataType   DataType
+	dataType   dataType
 	key, value string
 	file       io.Reader
 }
@@ -77,12 +77,12 @@ func (r *Multipart) Send() (*http.Response, error) {
 			}
 
 			switch form.dataType {
-			case ParamType:
+			case paramType:
 				if err := mw.WriteField(form.key, form.value); err != nil {
 					pw.CloseWithError(err)
 					return
 				}
-			case FileType:
+			case fileType:
 				part, err := mw.CreateFormFile(form.key, form.value)
 				if err != nil {
 					pw.CloseWithError(err)
@@ -132,7 +132,7 @@ func (r *Multipart) PathFloat(key string, value float64) *Multipart {
 
 // Param adds a string field to the multipart form.
 func (r *Multipart) Param(key, value string) *Multipart {
-	r.data = append(r.data, formData{dataType: ParamType, key: key, value: value})
+	r.data = append(r.data, formData{dataType: paramType, key: key, value: value})
 	return r
 }
 
@@ -153,6 +153,6 @@ func (r *Multipart) Int(key string, value int) *Multipart {
 
 // File adds a file field to the multipart form.
 func (r *Multipart) File(key, filename string, content io.Reader) *Multipart {
-	r.data = append(r.data, formData{dataType: FileType, key: key, value: filename, file: content})
+	r.data = append(r.data, formData{dataType: fileType, key: key, value: filename, file: content})
 	return r
 }
