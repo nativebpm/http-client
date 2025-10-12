@@ -1,3 +1,3 @@
-module github.com/nativebpm/connectors/httpstream
+module github.com/nativebpm/httpstream
 
 go 1.21

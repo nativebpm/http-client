@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/nativebpm/connectors/httpstream"
+	"github.com/nativebpm/httpstream"
 )
 
 func main() {
@@ -19,12 +19,14 @@ func main() {
 
 	loggingMiddleware := httpstream.LoggingMiddleware(logger)
 
-	client, err := httpstream.NewClient(http.Client{Timeout: 10 * time.Second}, "https://httpbin.org", loggingMiddleware)
+	client, err := httpstream.NewClient(&http.Client{Timeout: 10 * time.Second}, "https://httpbin.org")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	resp, err := client.GET(context.Background(), "/get").Send()
+	resp, err := client.GET(context.Background(), "/get").
+		Use(loggingMiddleware).
+		Send()
 	if err != nil {
 		log.Fatal(err)
 	}
